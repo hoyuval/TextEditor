@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTL Text Editor</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cousine Font from Google Fonts for monospaced text with Hebrew support -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cousine:wght@400;500;600;700&display=swap">
+    <style>
+        :root {
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: 'Cousine', monospace;
+        }
+        body {
+            font-family: var(--font-sans); /* Default to sans-serif for UI */
+            background-color: #f3f4f6; /* Light gray background */
+            color: #1f2937; /* Dark gray text */
+        }
+        /* Styling for the main container */
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-lg */
+        }
+        /* Styling for the contenteditable div and text inputs */
+        #textInput, .dropdown-input {
+            font-family: var(--font-mono); /* Explicitly keep text inputs monospace */
+            border: 1px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 0.75rem;
+            font-size: 1rem;
+            line-height: 2; /* Double line spacing */
+            width: 100%;
+            box-sizing: border-box; /* Ensures padding doesn't increase total width */
+            background-color: #ffffff; /* White background */
+            outline: none; /* Remove default focus outline */
+        }
+        #textInput {
+            min-height: 200px; /* Combined height for better usability */
+            overflow-y: auto; /* Enable scrolling for long content */
+            word-wrap: break-word; /* Ensure long words break */
+            white-space: pre-wrap; /* Preserve whitespace and allow wrapping */
+        }
+        /* Styling for primary and secondary buttons */
+        .action-btn {
+            background-color: #4f46e5; /* indigo-600 */
+            color: #ffffff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem; /* rounded-lg */
+            font-weight: 500; /* font-medium */
+            transition: background-color 0.2s ease-in-out; /* Smooth hover transition */
+            border: none;
+        }
+        .action-btn:hover {
+            background-color: #4338ca; /* indigo-700 on hover */
+        }
+        .secondary-btn {
+            background-color: #6b7280;
+        }
+        .secondary-btn:hover {
+            background-color: #4b5563;
+        }
+
+        /* Styles for the visualization overlay and individual markers */
+        #visualizationOverlay {
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            pointer-events: none; /* Crucial: allows clicks/selection to pass through to textInput */
+            overflow: hidden; /* Prevent markers from spilling out */
+            z-index: 5; /* Below selection, above text */
+            padding: inherit; /* Match parent's padding */
+        }
+        .overlay-marker {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            font-weight: bold;
+            color: #3b82f6; /* Unified blue color for all markers */
+            font-family: var(--font-mono); /* Markers should match the text font */
+        }
+        .overlay-marker.break {
+            transform: translateY(-50%);
+        }
+        .overlay-marker.space, .overlay-marker.tab, .overlay-marker.special {
+            transform: translate(-50%, -50%);
+        }
+        .overlay-marker.space {
+            font-size: 1rem;
+        }
+
+        /* Base style for control buttons */
+        .control-btn {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            background-color: #ffffff;
+            color: #4b5563;
+            font-weight: 500;
+            border: 1px solid #d1d5db;
+            outline: none;
+            border-radius: 0.75rem;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+        }
+        .control-btn:hover {
+            background-color: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        .control-btn:active {
+            background-color: #f3f4f6;
+            box-shadow: 0 0 1px rgba(0,0,0,0.1);
+            transform: translateY(1px);
+        }
+
+        /* Dropdown specific styles */
+        .dropdown-wrapper {
+            position: relative;
+            height: calc(2.5rem + 0.5rem); /* Match toggle container height */
+            display: flex;
+            align-items: center; /* This will vertically center the button inside */
+        }
+        .dropdown-wrapper .control-btn {
+            height: 100%; /* Make button fill the wrapper height */
+        }
+        .dropdown-menu {
+            position: absolute;
+            z-index: 20;
+            background-color: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            margin-top: 0.25rem;
+            top: 100%; /* Position below the button wrapper */
+            right: 0;
+        }
+        #insertDropdownMenu {
+            width: max-content; /* Adjust width to content */
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #insertDropdownMenu button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem 1rem;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        #insertDropdownMenu button:hover {
+            background-color: #f3f4f6;
+        }
+        
+        /* Find and Replace specific styles */
+        #findReplaceDropdownMenu {
+            width: 300px;
+            padding: 0.75rem;
+        }
+        .dropdown-input {
+            height: 2.5rem;
+            line-height: 1.5;
+        }
+        #findReplaceDropdownMenu button {
+             background-color: #4f46e5;
+             color: white;
+             padding: 0 1rem;
+             height: 2.5rem;
+             border-radius: 0.5rem;
+             border: none;
+             cursor: pointer;
+             width: 100%;
+        }
+
+        /* Substitutions Dropdown specific styles */
+        #substitutionsDropdownMenu {
+            width: 350px;
+            padding: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .substitution-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .substitution-row label {
+             white-space: nowrap;
+        }
+        .substitution-row input[type="checkbox"] {
+            width: 1rem;
+            height: 1rem;
+        }
+        .substitution-row input[type="text"] {
+             flex-grow: 1;
+        }
+
+        /* Base style for toggle containers */
+        .toggle-container {
+            display: flex;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+            position: relative;
+            overflow: hidden;
+            padding: 0.25rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            height: calc(2.5rem + 0.5rem);
+        }
+        #viz-toggle-container {
+            width: 170px; /* Fixed width */
+            justify-content: center;
+        }
+        /* New rule to fix double border/shadow on buttons inside toggles */
+        .toggle-container > .control-btn {
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            width: 100%;
+        }
+
+        /* Direction Toggle */
+        .direction-control-toggle {
+            gap: 0.5rem;
+        }
+        .direction-control-toggle button {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            background-color: transparent;
+            color: #4b5563;
+            font-weight: 500;
+            border: none;
+            outline: none;
+            border-radius: 0.75rem;
+            transition: color 0.3s, font-weight 0.3s;
+            position: relative;
+            z-index: 10;
+            white-space: nowrap;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toggle-container button.is-active-btn {
+            color: #ffffff;
+            font-weight: 700;
+        }
+        #activeIndicator {
+            position: absolute;
+            top: 0.25rem;
+            left: 0.25rem;
+            height: calc(100% - 0.5rem);
+            background-color: #4f46e5;
+            border-radius: 0.75rem;
+            transition: left 0.3s, width 0.3s;
+            z-index: 0;
+        }
+        #messageDisplay {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        .legend-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+        .legend-table th, .legend-table td {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e5e7eb;
+        }
+        .legend-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        .legend-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center mb-6">RTL Text Editor</h1>
+        <div class="flex items-center mb-6 justify-center space-x-4 flex-wrap">
+            <div id="directionToggle" class="direction-control-toggle toggle-container">
+                <div id="activeIndicator"></div>
+                <button id="btn-ltr" onclick="setDirection('ltr')">LTR</button>
+                <button id="btn-auto" onclick="setDirection('auto')">Auto</button>
+                <button id="btn-rtl" onclick="setDirection('rtl')">RTL</button>
+            </div>
+             
+            <!-- Visualization Toggle (Redesigned) -->
+            <div id="viz-toggle-container" class="toggle-container">
+                 <div id="vizIndicator" style="background-color: #4f46e5; position: absolute; top: 0.25rem; left: 0.25rem; height: calc(100% - 0.5rem); border-radius: 0.75rem; transition: width 0.3s; z-index: 0; width: 0;"></div>
+                 <button id="vizToggleButton" onclick="toggleVisualizationMode()" style="position: relative; z-index: 10;" class="control-btn">Show Visualization</button>
+            </div>
+
+            <!-- Find & Replace Dropdown -->
+            <div class="dropdown-wrapper">
+                <button id="findReplaceDropdownBtn" class="control-btn">Find & Replace</button>
+                <div id="findReplaceDropdownMenu" class="dropdown-menu hidden">
+                    <div class="space-y-2">
+                        <input type="text" id="findInput" placeholder="Find..." class="dropdown-input">
+                        <input type="text" id="replaceInput" placeholder="Replace with..." class="dropdown-input">
+                        <button onclick="replaceAll()">Replace All</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insert Character Dropdown -->
+            <div class="dropdown-wrapper">
+                <button id="insertDropdownBtn" class="control-btn">Insert Character</button>
+                <div id="insertDropdownMenu" class="dropdown-menu hidden">
+                    <button onclick="insertControlChar('\u200F')">RLM – Right-to-Left Mark – ⎤</button>
+                    <button onclick="insertControlChar('\u200E')">LRM – Left-to-Right Mark – ⎣</button>
+                    <button onclick="insertControlChar('\u202B')">RLE – Right-to-Left Embedding – ⧼</button>
+                    <button onclick="insertControlChar('\u202A')">LRE – Left-to-Right Embedding – ⧽</button>
+                    <button onclick="insertControlChar('\u00A0')">NBSP – Non-breaking Space – ◦</button>
+                    <button onclick="insertControlChar('\u2011')">NBH – Non-breaking Hyphen – ⸫</button>
+                    <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
+                    <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
+                    <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
+                </div>
+            </div>
+
+            <!-- Substitutions Dropdown -->
+            <div class="dropdown-wrapper">
+                <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
+                <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
+                    <div class="space-y-2">
+                        <div class="substitution-row">
+                             <input type="checkbox" id="sub-check-0">
+                             <label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label>
+                        </div>
+                        <hr class="my-2">
+                        <!-- 8 Rows of user substitutions -->
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-1">
+                            <input type="text" id="sub-from-1" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-1" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-2">
+                            <input type="text" id="sub-from-2" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-2" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-3">
+                            <input type="text" id="sub-from-3" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-3" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-4">
+                            <input type="text" id="sub-from-4" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-4" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-5">
+                            <input type="text" id="sub-from-5" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-5" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-6">
+                            <input type="text" id="sub-from-6" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-6" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-7">
+                            <input type="text" id="sub-from-7" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-7" class="dropdown-input">
+                        </div>
+                        <div class="substitution-row">
+                            <input type="checkbox" id="sub-check-8">
+                            <input type="text" id="sub-from-8" class="dropdown-input">
+                            <span>→</span>
+                            <input type="text" id="sub-to-8" class="dropdown-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <div class="relative">
+                <div id="textInput" contenteditable="true" spellcheck="false">Type or paste your text here...</div>
+                <div id="visualizationOverlay"></div>
+            </div>
+        </div>
+
+        <div class="mb-8 text-center space-x-4">
+            <button class="action-btn" onclick="copyText()">Copy Text</button>
+            <button class="action-btn secondary-btn" onclick="saveText()">Save File</button>
+            <button class="action-btn secondary-btn" onclick="openFile()">Open File</button>
+            <input type="file" id="fileInput" class="hidden" accept=".txt, .text, text/plain">
+        </div>
+
+        <div class="mt-8">
+            <h2 class="text-xl font-bold mb-4">Character Legend</h2>
+            <table class="legend-table">
+                <thead><tr><th>Name</th><th>Abbreviation</th><th>Visualization</th></tr></thead>
+                <tbody>
+                    <tr><td>Standard Space</td><td>Space</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">·</span></td></tr>
+                    <tr><td>Right-to-Left Mark</td><td>RLM</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⎤</span></td></tr>
+                    <tr><td>Left-to-Right Mark</td><td>LRM</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⎣</span></td></tr>
+                    <tr><td>Right-to-Left Embedding</td><td>RLE</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⧼</span></td></tr>
+                    <tr><td>Left-to-Right Embedding</td><td>LRE</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⧽</span></td></tr>
+                    <tr><td>Non-breaking Space</td><td>NBSP</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">◦</span></td></tr>
+                    <tr><td>Non-breaking Hyphen</td><td>NBH</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⸫</span></td></tr>
+                    <tr><td>Tab</td><td>Tab</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">↹</span></td></tr>
+                    <tr><td>Line Break</td><td>LB</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">¶</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="messageDisplay"></div>
+        <script>
+            const textInput = document.getElementById('textInput');
+            const overlay = document.getElementById('visualizationOverlay');
+            let isVisualizationActive = false;
+
+            const DISPLAY_SYMBOLS = {
+                ' ': '·', '\u200E': '⎣', '\u200F': '⎤', '\u202A': '⧽', '\u202B': '⧼',
+                '\u00A0': '◦', '\u2011': '⸫', '\n': '¶', '\t': '↹', '\u2013': '–', '\u2026': '…'
+            };
+            const SPECIAL_CHARS_SET = new Set(Object.keys(DISPLAY_SYMBOLS));
+
+            function createMarker(text, rect, editorRect, className = '') {
+                const marker = document.createElement('div');
+                marker.textContent = text;
+                marker.className = `overlay-marker ${className}`;
+                let leftPos, topPos;
+                if (className === 'break') {
+                    leftPos = rect.left - editorRect.left;
+                    topPos = rect.top - editorRect.top + (rect.height / 2);
+                } else {
+                    leftPos = rect.left - editorRect.left + (rect.width / 2);
+                    topPos = rect.top - editorRect.top + (rect.height / 2);
+                }
+                marker.style.left = `${leftPos}px`;
+                marker.style.top = `${topPos}px`;
+                overlay.appendChild(marker);
+            }
+
+            function visualizeInlineChars(node, editorRect, range) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const textContent = node.nodeValue;
+                    for (let i = 0; i < textContent.length; i++) {
+                        const char = textContent[i];
+                        if (SPECIAL_CHARS_SET.has(char) && char !== '\n') {
+                            const symbol = DISPLAY_SYMBOLS[char];
+                            try {
+                                range.setStart(node, i);
+                                range.setEnd(node, i + 1);
+                                const rects = range.getClientRects();
+                                if (rects.length > 0) {
+                                    let className = 'special';
+                                    if (char === ' ') className = 'space';
+                                    createMarker(symbol, rects[0], editorRect, className);
+                                }
+                            } catch (e) { console.error('Marker error:', e); }
+                        }
+                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    Array.from(node.childNodes).forEach(child => visualizeInlineChars(child, editorRect, range));
+                }
+            }
+
+            function applyVisualizations() {
+                if (!isVisualizationActive) return;
+                observer.disconnect();
+                overlay.innerHTML = '';
+                const range = document.createRange();
+                const editorRect = textInput.getBoundingClientRect();
+                visualizeInlineChars(textInput, editorRect, range);
+                let childNodes = Array.from(textInput.childNodes);
+                while (childNodes.length > 0) {
+                    const lastNode = childNodes[childNodes.length - 1];
+                    if ((lastNode.nodeType === Node.TEXT_NODE && lastNode.textContent.trim() === '') || (lastNode.tagName === 'DIV' && lastNode.innerHTML.trim() === '')) {
+                        childNodes.pop();
+                    } else { break; }
+                }
+                for (let i = 0; i < childNodes.length - 1; i++) {
+                    const node = childNodes[i];
+                    range.selectNodeContents(node);
+                    const contentRects = range.getClientRects();
+                    let markerLeftPosition, markerTargetRect;
+                    const computedDirection = window.getComputedStyle(textInput).direction;
+                    if (contentRects.length > 0) {
+                        markerTargetRect = contentRects[contentRects.length - 1];
+                        if (computedDirection === 'rtl') {
+                             markerLeftPosition = markerTargetRect.left - 10;
+                        } else {
+                             markerLeftPosition = markerTargetRect.right;
+                        }
+                    } else if (node.nodeType === Node.ELEMENT_NODE && node.innerHTML.toLowerCase().includes('<br>')) {
+                        markerTargetRect = node.getBoundingClientRect();
+                        markerLeftPosition = markerTargetRect.left;
+                    } else { continue; }
+                    const markerRect = { left: markerLeftPosition, top: markerTargetRect.top, height: markerTargetRect.height, width: 0 };
+                    createMarker(DISPLAY_SYMBOLS['\n'], markerRect, editorRect, 'break');
+                }
+                observer.observe(textInput, { childList: true, subtree: true, characterData: true });
+            }
+
+            const observer = new MutationObserver(() => {
+                if (isVisualizationActive) window.requestAnimationFrame(applyVisualizations);
+            });
+
+            function runSubstitutions(isReversed = false) {
+                const textWalker = document.createTreeWalker(textInput, NodeFilter.SHOW_TEXT);
+                let nodesToProcess = [];
+                while(textWalker.nextNode()) nodesToProcess.push(textWalker.currentNode);
+
+                // Special line break substitution
+                if (document.getElementById('sub-check-0').checked) {
+                    if (isReversed) { // viz -> plain
+                        let content = getRawTextFromContentEditable(textInput);
+                        content = content.replace(/\n/g, '\\n');
+                        textInput.innerHTML = `<div>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+                    } else { // plain -> viz
+                        nodesToProcess.forEach(node => {
+                            node.nodeValue = node.nodeValue.replace(/\\n/g, '\n');
+                        });
+                        let currentHTML = textInput.innerHTML;
+                        currentHTML = currentHTML.replace(/<br>/gi, '\n').replace(/<\/br>/gi, '');
+                        textInput.innerHTML = `<div>${currentHTML.replace(/\n/g, '</div><div>')}</div>`;
+                    }
+                }
+
+                // Regular substitutions need re-evaluation of nodes after potential HTML changes
+                const walker = document.createTreeWalker(textInput, NodeFilter.SHOW_TEXT);
+                let nodes = [];
+                while(walker.nextNode()) nodes.push(walker.currentNode);
+
+                for (let i = 1; i <= 8; i++) {
+                    if (document.getElementById(`sub-check-${i}`).checked) {
+                        const fromVal = document.getElementById(`sub-from-${i}`).value;
+                        const toVal = document.getElementById(`sub-to-${i}`).value;
+                        const findVal = isReversed ? toVal : fromVal;
+                        const replaceVal = isReversed ? fromVal : toVal;
+                        if (findVal) {
+                            nodes.forEach(node => {
+                                node.nodeValue = node.nodeValue.replace(new RegExp(findVal, 'g'), replaceVal);
+                            });
+                        }
+                    }
+                }
+            }
+
+            function toggleVisualizationMode() {
+                isVisualizationActive = !isVisualizationActive;
+                const button = document.getElementById('vizToggleButton');
+                const indicator = document.getElementById('vizIndicator');
+                
+                button.textContent = isVisualizationActive ? 'Hide Visualization' : 'Show Visualization';
+                button.classList.toggle('is-active-btn');
+
+                if (isVisualizationActive) {
+                    runSubstitutions(false); // Forward substitution
+                    indicator.style.width = `calc(100% - 0.5rem)`;
+                    observer.observe(textInput, { childList: true, subtree: true, characterData: true });
+                    setTimeout(applyVisualizations, 0);
+                } else {
+                    runSubstitutions(true); // Reverse substitution
+                    indicator.style.width = '0';
+                    observer.disconnect();
+                    overlay.innerHTML = '';
+                }
+            }
+
+            function replaceAll() {
+                const findValue = document.getElementById('findInput').value;
+                const replaceValue = document.getElementById('replaceInput').value;
+                
+                if (findValue === '') {
+                    showTemporaryMessage('Find field cannot be empty.', 'error');
+                    return;
+                }
+
+                let replacementCount = 0;
+                const findRegex = new RegExp(findValue, 'g');
+
+                const walker = document.createTreeWalker(textInput, NodeFilter.SHOW_TEXT);
+                let nodesToProcess = [];
+                while(walker.nextNode()) nodesToProcess.push(walker.currentNode);
+
+                nodesToProcess.forEach(node => {
+                    const matches = node.nodeValue.match(findRegex);
+                    if (matches) {
+                        replacementCount += matches.length;
+                        node.nodeValue = node.nodeValue.replace(findRegex, replaceValue);
+                    }
+                });
+
+                if (isVisualizationActive) applyVisualizations();
+                
+                showTemporaryMessage(`${replacementCount} replacement(s) made.`, 'success');
+                document.getElementById('findReplaceDropdownMenu').classList.add('hidden');
+            }
+
+            function setDirection(dir) {
+                const activeIndicator = document.getElementById('activeIndicator');
+                const activeBtn = document.getElementById(`btn-${dir}`);
+                if (activeBtn) {
+                    document.querySelectorAll('#directionToggle button').forEach(b => b.classList.remove('is-active-btn'));
+                    activeBtn.classList.add('is-active-btn');
+                    requestAnimationFrame(() => {
+                        activeIndicator.style.left = `${activeBtn.offsetLeft}px`;
+                        activeIndicator.style.width = `${activeBtn.offsetWidth}px`;
+                    });
+                }
+                textInput.setAttribute('dir', dir);
+                if (isVisualizationActive) applyVisualizations();
+            }
+
+            function insertControlChar(char) {
+                textInput.focus();
+                document.execCommand('insertText', false, char);
+                document.getElementById('insertDropdownMenu').classList.add('hidden');
+            }
+
+            function handlePaste(event) {
+                event.preventDefault();
+                const text = (event.clipboardData || window.clipboardData).getData('text/plain');
+                document.execCommand('insertText', false, text);
+            }
+
+            function getRawTextFromContentEditable(element) {
+                return element.innerText;
+            }
+
+            function copyText() {
+                const textToCopy = getRawTextFromContentEditable(textInput);
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showTemporaryMessage('Text copied!', 'success');
+                } catch (err) { showTemporaryMessage('Copy failed!', 'error'); }
+                document.body.removeChild(textArea);
+            }
+            
+            function saveText() {
+                const textToSave = getRawTextFromContentEditable(textInput);
+                const blob = new Blob([textToSave], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'text-content.txt'; // Reverted to a fixed filename
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }
+
+            function openFile() {
+                document.getElementById('fileInput').click();
+            }
+
+            function showTemporaryMessage(message, type = "info") {
+                let messageDiv = document.getElementById('messageDisplay');
+                messageDiv.textContent = message;
+                messageDiv.style.backgroundColor = (type === "success") ? '#4CAF50' : '#f44336';
+                messageDiv.style.opacity = '1';
+                setTimeout(() => { messageDiv.style.opacity = '0'; }, 2000);
+            }
+            
+            function setupDropdowns() {
+                const dropdowns = [
+                    { btn: 'insertDropdownBtn', menu: 'insertDropdownMenu' },
+                    { btn: 'findReplaceDropdownBtn', menu: 'findReplaceDropdownMenu' },
+                    { btn: 'substitutionsDropdownBtn', menu: 'substitutionsDropdownMenu' }
+                ];
+
+                dropdowns.forEach(d => {
+                    const btn = document.getElementById(d.btn);
+                    const menu = document.getElementById(d.menu);
+                    
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+                        dropdowns.forEach(other_d => {
+                            if (d.menu !== other_d.menu) {
+                                document.getElementById(other_d.menu).classList.add('hidden');
+                            }
+                        });
+                        menu.classList.toggle('hidden');
+                    });
+
+                    menu.addEventListener('click', e => e.stopPropagation());
+                });
+
+                document.addEventListener('click', () => {
+                    dropdowns.forEach(d => document.getElementById(d.menu).classList.add('hidden'));
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                setupDropdowns();
+
+                document.getElementById('fileInput').addEventListener('change', (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const content = e.target.result;
+                            const lines = content.split('\n');
+                            textInput.innerHTML = lines.map(line => `<div>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</div>`).join('');
+                            if(isVisualizationActive) {
+                                runSubstitutions(false);
+                                applyVisualizations();
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                    event.target.value = '';
+                });
+
+                textInput.addEventListener('paste', handlePaste);
+                textInput.addEventListener('focus', () => {
+                    if (textInput.textContent === 'Type or paste your text here...') {
+                        textInput.innerHTML = '<div></div>';
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.setStart(textInput.firstChild, 0);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                });
+                textInput.addEventListener('blur', () => {
+                     if (textInput.innerHTML.trim() === '' || textInput.innerHTML === '<div><br></div>' || textInput.innerHTML === '<div></div>') {
+                        textInput.innerHTML = 'Type or paste your text here...';
+                    }
+                });
+
+                setTimeout(() => { setDirection('rtl'); }, 100);
+            });
+        </script>
+    </div>
+</body>
+</html>
