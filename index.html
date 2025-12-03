@@ -164,7 +164,7 @@
         #insertDropdownMenu button:hover {
             background-color: #f3f4f6;
         }
-        
+         
         /* Find and Replace specific styles */
         #findReplaceDropdownMenu {
             width: 300px;
@@ -299,6 +299,28 @@
         .legend-table tr:nth-child(even) {
             background-color: #f9fafb;
         }
+
+        /* Stats Bar Styling */
+        #statsBar {
+            font-family: var(--font-mono);
+            font-size: 0.875rem; /* text-sm */
+            color: #6b7280; /* text-gray-500 */
+            margin-top: 0.75rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .stat-value {
+            font-weight: 600;
+            color: #4b5563; /* text-gray-700 */
+        }
     </style>
 </head>
 <body>
@@ -311,7 +333,7 @@
                 <button id="btn-auto" onclick="setDirection('auto')">Auto</button>
                 <button id="btn-rtl" onclick="setDirection('rtl')">RTL</button>
             </div>
-             
+              
             <!-- Visualization Toggle (Redesigned) -->
             <div id="viz-toggle-container" class="toggle-container">
                  <div id="vizIndicator" style="background-color: #4f46e5; position: absolute; top: 0.25rem; left: 0.25rem; height: calc(100% - 0.5rem); border-radius: 0.75rem; transition: width 0.3s; z-index: 0; width: 0;"></div>
@@ -410,10 +432,17 @@
             </div>
         </div>
         
-        <div class="mb-6">
+        <div>
             <div class="relative">
                 <div id="textInput" contenteditable="true" spellcheck="false">Type or paste your text here...</div>
                 <div id="visualizationOverlay"></div>
+            </div>
+            
+            <!-- Statistics Bar -->
+            <div id="statsBar">
+                <div class="stat-item">Character count: <span id="charCount" class="stat-value">0</span></div>
+                <div class="stat-item">Excluding control characters: <span id="charCountNoControl" class="stat-value">0</span></div>
+                <div class="stat-item">Word count: <span id="wordCount" class="stat-value">0</span></div>
             </div>
         </div>
 
@@ -531,8 +560,38 @@
                 observer.observe(textInput, { childList: true, subtree: true, characterData: true });
             }
 
+            // Stats Update Function
+            function updateStats() {
+                let text = getRawTextFromContentEditable(textInput);
+                
+                // Handle placeholder case
+                if (text === 'Type or paste your text here...' && textInput.innerText.trim() === 'Type or paste your text here...') {
+                   text = '';
+                }
+                
+                // 1. Total Character Count
+                const charCount = text.length;
+
+                // 2. Excluding control characters
+                // Regex matches: RLM, LRM, RLE, LRE, PDF, LRO, RLO, ZWNJ, ZWJ, ZWSP, BOM
+                const controlCharsRegex = /[\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u200B]/g;
+                const cleanText = text.replace(controlCharsRegex, '');
+                const charCountNoControl = cleanText.length;
+
+                // 3. Word Count
+                // Split by whitespace and filter out empty strings
+                const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+                // Update DOM
+                document.getElementById('charCount').textContent = charCount;
+                document.getElementById('charCountNoControl').textContent = charCountNoControl;
+                document.getElementById('wordCount').textContent = wordCount;
+            }
+
             const observer = new MutationObserver(() => {
                 if (isVisualizationActive) window.requestAnimationFrame(applyVisualizations);
+                // Trigger stats update on any mutation
+                updateStats();
             });
 
             function runSubstitutions(isReversed = false) {
@@ -580,7 +639,7 @@
                 isVisualizationActive = !isVisualizationActive;
                 const button = document.getElementById('vizToggleButton');
                 const indicator = document.getElementById('vizIndicator');
-                
+                 
                 button.textContent = isVisualizationActive ? 'Hide Visualization' : 'Show Visualization';
                 button.classList.toggle('is-active-btn');
 
@@ -594,13 +653,16 @@
                     indicator.style.width = '0';
                     observer.disconnect();
                     overlay.innerHTML = '';
+                    // Re-connect observer for stats even when visualization is off
+                    observer.observe(textInput, { childList: true, subtree: true, characterData: true });
                 }
+                updateStats(); // Force update after toggle
             }
 
             function replaceAll() {
                 const findValue = document.getElementById('findInput').value;
                 const replaceValue = document.getElementById('replaceInput').value;
-                
+                 
                 if (findValue === '') {
                     showTemporaryMessage('Find field cannot be empty.', 'error');
                     return;
@@ -625,6 +687,7 @@
                 
                 showTemporaryMessage(`${replacementCount} replacement(s) made.`, 'success');
                 document.getElementById('findReplaceDropdownMenu').classList.add('hidden');
+                updateStats();
             }
 
             function setDirection(dir) {
@@ -646,6 +709,7 @@
                 textInput.focus();
                 document.execCommand('insertText', false, char);
                 document.getElementById('insertDropdownMenu').classList.add('hidden');
+                updateStats(); // Explicit update
             }
 
             function handlePaste(event) {
@@ -672,7 +736,7 @@
                 } catch (err) { showTemporaryMessage('Copy failed!', 'error'); }
                 document.body.removeChild(textArea);
             }
-            
+             
             function saveText() {
                 const textToSave = getRawTextFromContentEditable(textInput);
                 const blob = new Blob([textToSave], { type: 'text/plain' });
@@ -696,7 +760,7 @@
                 messageDiv.style.opacity = '1';
                 setTimeout(() => { messageDiv.style.opacity = '0'; }, 2000);
             }
-            
+             
             function setupDropdowns() {
                 const dropdowns = [
                     { btn: 'insertDropdownBtn', menu: 'insertDropdownMenu' },
@@ -707,7 +771,7 @@
                 dropdowns.forEach(d => {
                     const btn = document.getElementById(d.btn);
                     const menu = document.getElementById(d.menu);
-                    
+                     
                     btn.addEventListener('click', e => {
                         e.stopPropagation();
                         dropdowns.forEach(other_d => {
@@ -741,6 +805,7 @@
                                 runSubstitutions(false);
                                 applyVisualizations();
                             }
+                            updateStats();
                         };
                         reader.readAsText(file);
                     }
@@ -748,6 +813,9 @@
                 });
 
                 textInput.addEventListener('paste', handlePaste);
+                // Attach input listener for instant updates while typing
+                textInput.addEventListener('input', updateStats);
+                
                 textInput.addEventListener('focus', () => {
                     if (textInput.textContent === 'Type or paste your text here...') {
                         textInput.innerHTML = '<div></div>';
@@ -760,10 +828,13 @@
                     }
                 });
                 textInput.addEventListener('blur', () => {
-                     if (textInput.innerHTML.trim() === '' || textInput.innerHTML === '<div><br></div>' || textInput.innerHTML === '<div></div>') {
+                      if (textInput.innerHTML.trim() === '' || textInput.innerHTML === '<div><br></div>' || textInput.innerHTML === '<div></div>') {
                         textInput.innerHTML = 'Type or paste your text here...';
                     }
                 });
+
+                // Initial observer setup
+                observer.observe(textInput, { childList: true, subtree: true, characterData: true });
 
                 setTimeout(() => { setDirection('rtl'); }, 100);
             });
