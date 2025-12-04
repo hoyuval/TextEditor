@@ -6,79 +6,128 @@
     <title>RTL Text Editor</title>
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Diff Match Patch Library for comparison logic -->
+    <!-- Diff Match Patch Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
-    <!-- Cousine Font from Google Fonts for monospaced text with Hebrew support -->
+    <!-- Google Material Symbols Outlined -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- Cousine Font -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cousine:wght@400;500;600;700&display=swap">
     <style>
         :root {
             --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             --font-mono: 'Cousine', monospace;
         }
-        body {
+        /* Reset and Full Height Layout */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
             font-family: var(--font-sans);
-            background-color: #f3f4f6;
+            background-color: #ffffff;
             color: #1f2937;
         }
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background-color: #ffffff;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: max-width 0.3s ease;
+
+        /* Material Icons sizing adjustments */
+        .material-symbols-outlined {
+            font-size: 1.25rem; /* 20px */
+            line-height: 1;
         }
-        
+
+        /* Main Flex Container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        /* Header Section */
+        .app-header {
+            flex-shrink: 0;
+            margin-bottom: 1rem;
+        }
+        h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0 0 1rem 0;
+        }
+
+        /* Editor Section */
+        .app-editor-area {
+            flex-grow: 1;
+            min-height: 200px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        /* Footer Section */
+        .app-footer {
+            flex-shrink: 0;
+            max-height: 40vh;
+            overflow-y: auto;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 1rem;
+        }
+
         /* Editor Grid Layout */
         .editor-grid {
             display: grid;
             grid-template-columns: 1fr;
             gap: 1.5rem;
-            transition: all 0.3s ease;
+            height: 100%;
+            width: 100%;
         }
         .editor-grid.comparison-active {
             grid-template-columns: 1fr 1fr;
         }
 
-        .editor-wrapper {
-            position: relative;
+        /* Column Layout for Label + Editor */
+        .editor-col {
             display: flex;
             flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        .editor-label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #4b5563;
+            margin-bottom: 0.25rem;
+            padding-left: 0.25rem;
         }
 
-        /* Styling for the contenteditable div and text inputs */
-        .text-input, .dropdown-input {
-            font-family: var(--font-mono);
+        .editor-wrapper {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             border: 1px solid #d1d5db;
             border-radius: 0.5rem;
+        }
+
+        /* Text Input Styling */
+        .text-input {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
             padding: 0.75rem;
+            font-family: var(--font-mono);
             font-size: 1rem;
             line-height: 2;
-            width: 100%;
-            box-sizing: border-box;
-            background-color: #ffffff;
-            outline: none;
-        }
-        .text-input {
-            min-height: 400px;
             overflow-y: auto;
             word-wrap: break-word;
             white-space: pre-wrap;
+            outline: none;
+            background-color: #fff;
+            box-sizing: border-box;
         }
-        
-        .action-btn {
-            background-color: #4f46e5;
-            color: #ffffff;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 500;
-            transition: background-color 0.2s ease-in-out;
-            border: none;
-        }
-        .action-btn:hover { background-color: #4338ca; }
-        .secondary-btn { background-color: #6b7280; }
-        .secondary-btn:hover { background-color: #4b5563; }
 
         /* Visualization Overlay */
         .visualization-overlay {
@@ -90,8 +139,8 @@
             pointer-events: none;
             overflow: hidden;
             z-index: 5;
-            padding: inherit;
         }
+
         .overlay-marker {
             position: absolute;
             display: flex;
@@ -102,903 +151,770 @@
             color: #3b82f6;
             font-family: var(--font-mono);
         }
+        .overlay-marker.highlight-match {
+            background-color: rgba(255, 255, 0, 0.4);
+            border-bottom: 2px solid #eab308;
+            z-index: -1; 
+        }
         .overlay-marker.break { transform: translateY(-50%); }
         .overlay-marker.space, .overlay-marker.tab, .overlay-marker.special { transform: translate(-50%, -50%); }
         .overlay-marker.space { font-size: 1rem; }
 
-        /* Control Buttons */
-        .control-btn {
-            padding: 0.75rem 1rem;
+        /* UI Controls Styling */
+        .control-row {
+            display: flex;
+            justify-content: flex-start; /* Aligned to Left */
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-btn, .action-btn, .secondary-btn {
+            padding: 0.5rem;
             cursor: pointer;
-            background-color: #ffffff;
-            color: #4b5563;
             font-weight: 500;
-            border: 1px solid #d1d5db;
-            outline: none;
-            border-radius: 0.75rem;
+            border-radius: 0.5rem;
             transition: all 0.2s;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
             height: 2.5rem;
+            min-width: 2.5rem;
             display: flex;
             align-items: center;
             justify-content: center;
             white-space: nowrap;
         }
+        .control-btn {
+            background-color: #ffffff;
+            color: #4b5563;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
         .control-btn:hover { background-color: #e5e7eb; border-color: #9ca3af; }
         .control-btn:active { background-color: #f3f4f6; transform: translateY(1px); }
+        .control-btn.is-active-btn { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+        
+        .action-btn { background-color: #4f46e5; color: white; border: none; padding: 0.5rem 1rem;}
+        .action-btn:hover { background-color: #4338ca; }
+        .secondary-btn { background-color: #6b7280; color: white; border: none; padding: 0.5rem 1rem;}
+        .secondary-btn:hover { background-color: #4b5563; }
 
-        /* Dropdowns */
-        .dropdown-wrapper {
-            position: relative;
-            height: calc(2.5rem + 0.5rem);
+        /* Toggle Containers */
+        .toggle-container {
             display: flex;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            padding: 0.125rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            height: 2.5rem;
+            background-color: #ffffff;
             align-items: center;
         }
+        .toggle-container > .control-btn { 
+            border: none; 
+            box-shadow: none; 
+            background: transparent; 
+            height: 100%;
+            border-radius: 0.375rem;
+            padding: 0 0.75rem;
+        }
+        .toggle-container > .control-btn:hover { background-color: #e5e7eb; }
+        .toggle-container > .control-btn.is-active-btn { background-color: #4f46e5; color: white; }
+
+        /* Dropdowns */
+        .dropdown-wrapper { position: relative; height: 2.5rem; display: flex; align-items: center; }
         .dropdown-wrapper .control-btn { height: 100%; }
         .dropdown-menu {
             position: absolute;
-            z-index: 20;
+            z-index: 50;
             background-color: white;
             border: 1px solid #d1d5db;
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             margin-top: 0.25rem;
             top: 100%;
-            right: 0;
+            left: 0;
         }
         #insertDropdownMenu { width: max-content; max-height: 300px; overflow-y: auto; }
-        #insertDropdownMenu button {
+        #substitutionsDropdownMenu { width: 350px; padding: 0.75rem; max-height: 400px; overflow-y: auto; }
+        .dropdown-menu button {
             display: block; width: 100%; text-align: left; padding: 0.5rem 1rem;
             background-color: transparent; border: none; cursor: pointer;
         }
-        #insertDropdownMenu button:hover { background-color: #f3f4f6; }
-        #findReplaceDropdownMenu { width: 300px; padding: 0.75rem; }
-        #findReplaceDropdownMenu button {
-             background-color: #4f46e5; color: white; padding: 0 1rem; height: 2.5rem;
-             border-radius: 0.5rem; border: none; cursor: pointer; width: 100%;
-        }
-        #substitutionsDropdownMenu { width: 350px; padding: 0.75rem; max-height: 400px; overflow-y: auto; }
+        .dropdown-menu button:hover { background-color: #f3f4f6; }
+        .dropdown-input { border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
         .substitution-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .substitution-row label { white-space: nowrap; }
 
-        /* Toggles */
-        .toggle-container {
-            display: flex;
+        /* Find Bar */
+        .find-bar {
+            background-color: #f9fafb;
             border: 1px solid #d1d5db;
             border-radius: 0.75rem;
-            position: relative;
-            overflow: hidden;
-            padding: 0.25rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            height: calc(2.5rem + 0.5rem);
-            background-color: #ffffff;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .find-row-inputs {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+        }
+        .find-row-controls {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
             align-items: center;
+            flex-wrap: wrap;
         }
-        
-        .toggle-btn-width { width: 170px; justify-content: center; }
+        .find-input {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            flex: 1;
+        }
+        #matchCounter {
+            font-size: 0.9rem;
+            color: #6b7280;
+            white-space: nowrap;
+            min-width: 100px;
+            font-weight: 500;
+        }
 
-        .toggle-container > .control-btn { border: none; box-shadow: none; background: transparent; width: 100%; }
-        
-        /* Direction Toggle */
-        .direction-control-toggle { gap: 0.5rem; }
-        .direction-control-toggle button {
-            flex-grow: 1; padding: 0.75rem 1rem; cursor: pointer; background-color: transparent;
-            color: #4b5563; font-weight: 500; border: none; outline: none; border-radius: 0.75rem;
-            position: relative; z-index: 10; height: 2.5rem;
-            display: flex; align-items: center; justify-content: center; /* Ensure centering */
+        /* Stats */
+        #statsBar {
+            font-family: var(--font-mono); font-size: 0.875rem; color: #6b7280;
+            display: flex; gap: 2rem; margin-bottom: 1rem;
         }
-        
-        .toggle-container button.is-active-btn { color: #ffffff; font-weight: 700; }
-        
-        /* Generic Active Indicator */
-        .active-indicator {
-            position: absolute; top: 0.25rem; left: 0.25rem; height: calc(100% - 0.5rem);
-            background-color: #4f46e5; border-radius: 0.75rem; transition: width 0.3s, left 0.3s; z-index: 0; width: 0;
-        }
-        
+        .stat-value { font-weight: 600; color: #374151; }
+
+        /* Legend */
+        .legend-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 1rem;}
+        .legend-table th, .legend-table td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; }
+        .legend-table th { background-color: #f9fafb; font-weight: 600; text-align: left; }
+
         /* Diff Colors */
         .diff-del { background-color: #fecaca; text-decoration: line-through; color: #991b1b; }
         .diff-ins { background-color: #bbf7d0; color: #166534; }
         
-        /* Misc */
+        .hidden { display: none !important; }
+        
         #messageDisplay {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
             padding: 10px 20px; border-radius: 5px; color: white; z-index: 1000;
-            opacity: 0; transition: opacity 0.5s; pointer-events: none;
-        }
-        .legend-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; text-align: left; }
-        .legend-table th, .legend-table td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; }
-        .legend-table th { background-color: #f9fafb; font-weight: 600; }
-        #statsBar {
-            font-family: var(--font-mono); font-size: 0.875rem; color: #6b7280;
-            margin-top: 0.75rem; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap;
-            justify-content: space-between; gap: 0.5rem;
-        }
-        .stat-value { font-weight: 600; color: #4b5563; }
-        
-        /* Hidden elements utility */
-        .hidden { display: none !important; }
-        .label-badge {
-            position: absolute;
-            top: -10px;
-            left: 10px;
-            background: #e5e7eb;
-            color: #374151;
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            z-index: 10;
+            opacity: 0; transition: opacity 0.5s; pointer-events: none; font-size: 1rem;
         }
     </style>
 </head>
 <body>
-    <div class="container" id="mainContainer">
-        <h1 class="text-3xl font-bold text-center mb-6">RTL Text Editor</h1>
-        
-        <!-- Controls Toolbar -->
-        <div class="flex items-center mb-6 justify-center space-x-4 flex-wrap gap-y-2">
-            <!-- Direction Toggle -->
-            <div id="directionToggle" class="direction-control-toggle toggle-container">
-                <div id="directionIndicator" class="active-indicator" style="width: 0;"></div>
-                <button id="btn-ltr" onclick="setDirection('ltr')">LTR</button>
-                <button id="btn-auto" onclick="setDirection('auto')">Auto</button>
-                <button id="btn-rtl" onclick="setDirection('rtl')">RTL</button>
-            </div>
-              
-            <!-- Visualization Toggle -->
-            <div id="viz-toggle-container" class="toggle-container toggle-btn-width">
-                 <div id="vizIndicator" class="active-indicator"></div>
-                 <button id="vizToggleButton" onclick="toggleVisualizationMode()" style="position: relative; z-index: 10;" class="control-btn">Show Visualization</button>
-            </div>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="app-header">
+            
+            
+            <div class="control-row">
+                <!-- Direction -->
+                <div class="toggle-container">
+                    <button id="btn-ltr" class="control-btn" onclick="setDirection('ltr')" title="LTR"><span class="material-symbols-outlined">format_textdirection_l_to_r</span></button>
+                    <button id="btn-auto" class="control-btn" onclick="setDirection('auto')" title="Auto"><span class="material-symbols-outlined">hdr_auto</span></button>
+                    <button id="btn-rtl" class="control-btn" onclick="setDirection('rtl')" title="RTL"><span class="material-symbols-outlined">format_textdirection_r_to_l</span></button>
+                </div>
 
-            <!-- Menus -->
-            <div class="dropdown-wrapper">
-                <button id="findReplaceDropdownBtn" class="control-btn">Find & Replace</button>
-                <div id="findReplaceDropdownMenu" class="dropdown-menu hidden">
-                    <div class="space-y-2">
-                        <input type="text" id="findInput" placeholder="Find..." class="dropdown-input">
-                        <input type="text" id="replaceInput" placeholder="Replace with..." class="dropdown-input">
-                        <button onclick="replaceAll()">Replace All</button>
+                <!-- Visualization Toggle -->
+                <div class="toggle-container">
+                    <button id="vizToggleButton" onclick="toggleVisualizationMode()" class="control-btn" title="Show Visualization">
+                        <span class="material-symbols-outlined">visibility</span>
+                    </button>
+                </div>
+
+                <!-- Undo/Redo -->
+                <div class="toggle-container">
+                    <button class="control-btn" onclick="document.execCommand('undo')" title="Undo"><span class="material-symbols-outlined">undo</span></button>
+                    <button class="control-btn" onclick="document.execCommand('redo')" title="Redo"><span class="material-symbols-outlined">redo</span></button>
+                </div>
+
+                <!-- Comparison Mode -->
+                <div class="toggle-container">
+                    <button id="comparisonBtn" onclick="toggleComparisonMode()" class="control-btn" title="Comparison Mode">
+                        <span class="material-symbols-outlined">view_column_2</span>
+                    </button>
+                </div>
+
+                <!-- Menus -->
+                <div class="dropdown-wrapper">
+                    <button id="insertDropdownBtn" class="control-btn" title="Insert Character"><span class="material-symbols-outlined">add</span></button>
+                    <div id="insertDropdownMenu" class="dropdown-menu hidden">
+                        <button onclick="insertControlChar('\u200F')">RLM – Right-to-Left Mark – ⎤</button>
+                        <button onclick="insertControlChar('\u200E')">LRM – Left-to-Right Mark – ⎣</button>
+                        <button onclick="insertControlChar('\u202B')">RLE – Right-to-Left Embedding – ⧼</button>
+                        <button onclick="insertControlChar('\u202A')">LRE – Left-to-Right Embedding – ⧽</button>
+                        <button onclick="insertControlChar('\u00A0')">NBSP – Non-breaking Space – ◦</button>
+                        <button onclick="insertControlChar('\u2011')">NBH – Non-breaking Hyphen – ⸫</button>
+                        <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
+                        <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
+                        <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
+                    </div>
+                </div>
+
+                <div class="dropdown-wrapper">
+                    <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
+                    <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
+                        <div class="space-y-2">
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-0"><label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label></div>
+                            <hr style="width:100%; border-color:#e5e7eb; margin: 0.5rem 0;">
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-1"><input type="text" id="sub-from-1" class="dropdown-input"><span>→</span><input type="text" id="sub-to-1" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-2"><input type="text" id="sub-from-2" class="dropdown-input"><span>→</span><input type="text" id="sub-to-2" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-3"><input type="text" id="sub-from-3" class="dropdown-input"><span>→</span><input type="text" id="sub-to-3" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-4"><input type="text" id="sub-from-4" class="dropdown-input"><span>→</span><input type="text" id="sub-to-4" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-5"><input type="text" id="sub-from-5" class="dropdown-input"><span>→</span><input type="text" id="sub-to-5" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-6"><input type="text" id="sub-from-6" class="dropdown-input"><span>→</span><input type="text" id="sub-to-6" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-7"><input type="text" id="sub-from-7" class="dropdown-input"><span>→</span><input type="text" id="sub-to-7" class="dropdown-input"></div>
+                            <div class="substitution-row"><input type="checkbox" id="sub-check-8"><input type="text" id="sub-from-8" class="dropdown-input"><span>→</span><input type="text" id="sub-to-8" class="dropdown-input"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diff Toggle (At the end) -->
+                <div class="toggle-container hidden" id="diffToggleContainer">
+                    <button id="diffToggleButton" onclick="toggleDiffMode()" class="control-btn" title="Show Diffs">
+                        <span class="material-symbols-outlined">text_compare</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Editor Area -->
+        <div class="app-editor-area">
+            <div id="editorGrid" class="editor-grid">
+                <!-- Left Editor -->
+                <div class="editor-col">
+                    <div class="editor-label hidden" id="labelLeft">Original</div>
+                    <div class="editor-wrapper">
+                        <div id="textInput" class="text-input" contenteditable="true" spellcheck="false">Type or paste your text here...</div>
+                        <div id="visualizationOverlay" class="visualization-overlay"></div>
+                    </div>
+                </div>
+                
+                <!-- Right Editor -->
+                <div class="editor-col hidden" id="rightCol">
+                    <div class="editor-label" id="labelRight">Modified</div>
+                    <div class="editor-wrapper">
+                        <div id="textInput2" class="text-input" contenteditable="true" spellcheck="false"></div>
+                        <div id="visualizationOverlay2" class="visualization-overlay"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="dropdown-wrapper">
-                <button id="insertDropdownBtn" class="control-btn">Insert Character</button>
-                <div id="insertDropdownMenu" class="dropdown-menu hidden">
-                    <button onclick="insertControlChar('\u200F')">RLM – Right-to-Left Mark – ⎤</button>
-                    <button onclick="insertControlChar('\u200E')">LRM – Left-to-Right Mark – ⎣</button>
-                    <button onclick="insertControlChar('\u202B')">RLE – Right-to-Left Embedding – ⧼</button>
-                    <button onclick="insertControlChar('\u202A')">LRE – Left-to-Right Embedding – ⧽</button>
-                    <button onclick="insertControlChar('\u00A0')">NBSP – Non-breaking Space – ◦</button>
-                    <button onclick="insertControlChar('\u2011')">NBH – Non-breaking Hyphen – ⸫</button>
-                    <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
-                    <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
-                    <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
+        <!-- Footer -->
+        <div class="app-footer">
+            <div id="statsBar">
+                <div class="stat-item">Character count: <span id="charCount" class="stat-value">0</span></div>
+                <div class="stat-item">Excluding control characters: <span id="charCountNoControl" class="stat-value">0</span></div>
+                <div class="stat-item">Word count: <span id="wordCount" class="stat-value">0</span></div>
+            </div>
+
+            <div class="find-bar">
+                <div class="find-row-inputs">
+                    <input type="text" id="findInput" placeholder="Find text..." class="find-input" oninput="updateMatchCount()">
+                    <input type="text" id="replaceInput" placeholder="Replace with..." class="find-input">
+                </div>
+                <div class="find-row-controls">
+                    <label style="font-size: 0.9rem; display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="regexToggle" onchange="updateMatchCount()" style="margin-right: 6px; width: 1rem; height: 1rem;"> 
+                        Regex
+                    </label>
+                    <span id="matchCounter">0 matches</span>
+                    <div style="flex-grow: 1;"></div> 
+                    <button class="action-btn" onclick="findNext()">Find Next</button>
+                    <button class="action-btn" onclick="highlightMatches()">Highlight Matches</button>
+                    <button class="action-btn" onclick="replaceNext()">Replace Next</button>
+                    <button class="action-btn" onclick="replaceAll()">Replace All</button>
                 </div>
             </div>
 
-            <div class="dropdown-wrapper">
-                <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
-                <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
-                    <div class="space-y-2">
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-0"><label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label></div>
-                        <hr class="my-2">
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-1"><input type="text" id="sub-from-1" class="dropdown-input"><span>→</span><input type="text" id="sub-to-1" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-2"><input type="text" id="sub-from-2" class="dropdown-input"><span>→</span><input type="text" id="sub-to-2" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-3"><input type="text" id="sub-from-3" class="dropdown-input"><span>→</span><input type="text" id="sub-to-3" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-4"><input type="text" id="sub-from-4" class="dropdown-input"><span>→</span><input type="text" id="sub-to-4" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-5"><input type="text" id="sub-from-5" class="dropdown-input"><span>→</span><input type="text" id="sub-to-5" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-6"><input type="text" id="sub-from-6" class="dropdown-input"><span>→</span><input type="text" id="sub-to-6" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-7"><input type="text" id="sub-from-7" class="dropdown-input"><span>→</span><input type="text" id="sub-to-7" class="dropdown-input"></div>
-                        <div class="substitution-row"><input type="checkbox" id="sub-check-8"><input type="text" id="sub-from-8" class="dropdown-input"><span>→</span><input type="text" id="sub-to-8" class="dropdown-input"></div>
-                    </div>
-                </div>
+            <div style="text-align: center; margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 1rem;">
+                <button class="action-btn" onclick="copyText()">Copy Text</button>
+                <button class="secondary-btn" onclick="saveText()">Save File</button>
+                <button class="secondary-btn" onclick="openFile()">Open File</button>
+                <input type="file" id="fileInput" class="hidden" accept=".txt, .text, text/plain">
             </div>
 
-            <!-- Comparison Mode Toggle -->
-             <div id="comp-toggle-container" class="toggle-container toggle-btn-width">
-                 <div id="compIndicator" class="active-indicator"></div>
-                 <button id="comparisonBtn" onclick="toggleComparisonMode()" style="position: relative; z-index: 10;" class="control-btn">Comparison Mode</button>
-            </div>
-
-            <!-- Diff Visualization Toggle (Only visible in Comparison Mode) -->
-            <div id="diff-toggle-container" class="toggle-container toggle-btn-width hidden">
-                <div id="diffIndicator" class="active-indicator"></div>
-                <button id="diffToggleButton" onclick="toggleDiffMode()" style="position: relative; z-index: 10;" class="control-btn">Show Diffs</button>
-           </div>
-        </div>
-        
-        <!-- Editors Grid -->
-        <div id="editorGrid" class="editor-grid">
-            <!-- Left Editor (Original/Source) -->
-            <div class="editor-wrapper" id="leftWrapper">
-                <span class="label-badge hidden" id="labelLeft">Original</span>
-                <div id="textInput" class="text-input" contenteditable="true" spellcheck="false">Type or paste your text here...</div>
-                <div id="visualizationOverlay" class="visualization-overlay"></div>
-            </div>
-            
-            <!-- Right Editor (Comparison/Destination) -->
-            <div class="editor-wrapper hidden" id="rightWrapper">
-                <span class="label-badge" id="labelRight">Modified</span>
-                <div id="textInput2" class="text-input" contenteditable="true" spellcheck="false"></div>
-                <div id="visualizationOverlay2" class="visualization-overlay"></div>
-            </div>
-        </div>
-            
-        <!-- Statistics Bar -->
-        <div id="statsBar">
-            <div class="stat-item">Character count: <span id="charCount" class="stat-value">0</span></div>
-            <div class="stat-item">Excluding control characters: <span id="charCountNoControl" class="stat-value">0</span></div>
-            <div class="stat-item">Word count: <span id="wordCount" class="stat-value">0</span></div>
-        </div>
-
-        <div class="mb-8 text-center space-x-4">
-            <button class="action-btn" onclick="copyText()">Copy Text</button>
-            <button class="action-btn secondary-btn" onclick="saveText()">Save File</button>
-            <button class="action-btn secondary-btn" onclick="openFile()">Open File</button>
-            <input type="file" id="fileInput" class="hidden" accept=".txt, .text, text/plain">
-        </div>
-
-        <div class="mt-8">
-            <h2 class="text-xl font-bold mb-4">Character Legend</h2>
             <table class="legend-table">
                 <thead><tr><th>Name</th><th>Abbreviation</th><th>Visualization</th></tr></thead>
                 <tbody>
-                    <tr><td>Standard Space</td><td>Space</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">·</span></td></tr>
-                    <tr><td>Right-to-Left Mark</td><td>RLM</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⎤</span></td></tr>
-                    <tr><td>Left-to-Right Mark</td><td>LRM</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⎣</span></td></tr>
-                    <tr><td>Right-to-Left Embedding</td><td>RLE</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⧼</span></td></tr>
-                    <tr><td>Left-to-Right Embedding</td><td>LRE</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">⧽</span></td></tr>
-                    <tr><td>Non-breaking Space</td><td>NBSP</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">◦</span></td></tr>
-                    <tr><td>Tab</td><td>Tab</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">↹</span></td></tr>
-                    <tr><td>Line Break</td><td>LB</td><td><span class="font-bold text-blue-500" style="font-family: var(--font-mono);">¶</span></td></tr>
+                    <tr><td>Standard Space</td><td>Space</td><td><span style="color:#3b82f6; font-weight:bold;">·</span></td></tr>
+                    <tr><td>Right-to-Left Mark</td><td>RLM</td><td><span style="color:#3b82f6; font-weight:bold;">⎤</span></td></tr>
+                    <tr><td>Left-to-Right Mark</td><td>LRM</td><td><span style="color:#3b82f6; font-weight:bold;">⎣</span></td></tr>
+                    <tr><td>Right-to-Left Embedding</td><td>RLE</td><td><span style="color:#3b82f6; font-weight:bold;">⧼</span></td></tr>
+                    <tr><td>Left-to-Right Embedding</td><td>LRE</td><td><span style="color:#3b82f6; font-weight:bold;">⧽</span></td></tr>
+                    <tr><td>Non-breaking Space</td><td>NBSP</td><td><span style="color:#3b82f6; font-weight:bold;">◦</span></td></tr>
+                    <tr><td>Tab</td><td>Tab</td><td><span style="color:#3b82f6; font-weight:bold;">↹</span></td></tr>
+                    <tr><td>Line Break</td><td>LB</td><td><span style="color:#3b82f6; font-weight:bold;">¶</span></td></tr>
                 </tbody>
             </table>
         </div>
-        <div id="messageDisplay"></div>
-        
-        <script>
-            // Elements
-            const textInput = document.getElementById('textInput');
-            const overlay = document.getElementById('visualizationOverlay');
-            
-            const textInput2 = document.getElementById('textInput2');
-            const overlay2 = document.getElementById('visualizationOverlay2');
-            
-            const editorGrid = document.getElementById('editorGrid');
-            const rightWrapper = document.getElementById('rightWrapper');
-            const comparisonBtn = document.getElementById('comparisonBtn');
-            const compIndicator = document.getElementById('compIndicator');
-            const diffToggleContainer = document.getElementById('diff-toggle-container');
-            const labelLeft = document.getElementById('labelLeft');
-
-            // State
-            let isVisualizationActive = false;
-            let isComparisonMode = false;
-            let isDiffActive = false;
-            let activeInput = textInput; // Track which input is currently being used for stats/commands
-            let diffDebounceTimer;
-            let lastSelectionRange = null; // Track the last valid cursor position
-
-            // Diff Match Patch Instance
-            const dmp = new diff_match_patch();
-
-            // Symbols
-            const DISPLAY_SYMBOLS = {
-                ' ': '·', '\u200E': '⎣', '\u200F': '⎤', '\u202A': '⧽', '\u202B': '⧼',
-                '\u00A0': '◦', '\u2011': '⸫', '\n': '¶', '\t': '↹', '\u2013': '–', '\u2026': '…'
-            };
-            const SPECIAL_CHARS_SET = new Set(Object.keys(DISPLAY_SYMBOLS));
-
-            // Function to save selection on specific events
-            function updateLastSelection() {
-                const sel = window.getSelection();
-                if (sel.rangeCount > 0) {
-                    const range = sel.getRangeAt(0);
-                    // Ensure we are saving a range that is actually inside one of our editors
-                    if ((textInput.contains(range.commonAncestorContainer)) || 
-                        (textInput2.contains(range.commonAncestorContainer))) {
-                        lastSelectionRange = range.cloneRange();
-                    }
-                }
-            }
-
-            // --- Visualization Logic ---
-
-            function createMarker(text, rect, editorRect, parentOverlay, className = '') {
-                const marker = document.createElement('div');
-                marker.textContent = text;
-                marker.className = `overlay-marker ${className}`;
-                let leftPos, topPos;
-                if (className === 'break') {
-                    leftPos = rect.left - editorRect.left;
-                    topPos = rect.top - editorRect.top + (rect.height / 2);
-                } else {
-                    leftPos = rect.left - editorRect.left + (rect.width / 2);
-                    topPos = rect.top - editorRect.top + (rect.height / 2);
-                }
-                marker.style.left = `${leftPos}px`;
-                marker.style.top = `${topPos}px`;
-                parentOverlay.appendChild(marker);
-            }
-
-            function visualizeInlineChars(node, editorRect, range, parentOverlay) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    const textContent = node.nodeValue;
-                    for (let i = 0; i < textContent.length; i++) {
-                        const char = textContent[i];
-                        if (SPECIAL_CHARS_SET.has(char) && char !== '\n') {
-                            const symbol = DISPLAY_SYMBOLS[char];
-                            try {
-                                range.setStart(node, i);
-                                range.setEnd(node, i + 1);
-                                const rects = range.getClientRects();
-                                if (rects.length > 0) {
-                                    let className = 'special';
-                                    if (char === ' ') className = 'space';
-                                    createMarker(symbol, rects[0], editorRect, parentOverlay, className);
-                                }
-                            } catch (e) { }
-                        }
-                    }
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    Array.from(node.childNodes).forEach(child => visualizeInlineChars(child, editorRect, range, parentOverlay));
-                }
-            }
-
-            function applyVisualizationsForEditor(editorElement, overlayElement) {
-                if (!isVisualizationActive) {
-                    overlayElement.innerHTML = '';
-                    return;
-                }
-                
-                overlayElement.innerHTML = '';
-                const range = document.createRange();
-                const editorRect = editorElement.getBoundingClientRect();
-                
-                visualizeInlineChars(editorElement, editorRect, range, overlayElement);
-                
-                let childNodes = Array.from(editorElement.childNodes);
-                // Filter out empty trailing nodes for cleaner line breaks
-                while (childNodes.length > 0) {
-                    const lastNode = childNodes[childNodes.length - 1];
-                    if ((lastNode.nodeType === Node.TEXT_NODE && lastNode.textContent.trim() === '') || 
-                        (lastNode.tagName === 'DIV' && lastNode.innerHTML.trim() === '')) {
-                        childNodes.pop();
-                    } else { break; }
-                }
-
-                for (let i = 0; i < childNodes.length - 1; i++) {
-                    const node = childNodes[i];
-                    range.selectNodeContents(node);
-                    const contentRects = range.getClientRects();
-                    let markerLeftPosition, markerTargetRect;
-                    const computedDirection = window.getComputedStyle(editorElement).direction;
-                    
-                    if (contentRects.length > 0) {
-                        markerTargetRect = contentRects[contentRects.length - 1];
-                        markerLeftPosition = (computedDirection === 'rtl') ? markerTargetRect.left - 10 : markerTargetRect.right;
-                    } else if (node.nodeType === Node.ELEMENT_NODE && node.innerHTML.toLowerCase().includes('<br>')) {
-                        markerTargetRect = node.getBoundingClientRect();
-                        markerLeftPosition = markerTargetRect.left;
-                    } else { continue; }
-                    
-                    const markerRect = { left: markerLeftPosition, top: markerTargetRect.top, height: markerTargetRect.height, width: 0 };
-                    createMarker(DISPLAY_SYMBOLS['\n'], markerRect, editorRect, overlayElement, 'break');
-                }
-            }
-
-            function applyAllVisualizations() {
-                if (isVisualizationActive) {
-                    applyVisualizationsForEditor(textInput, overlay);
-                    if (isComparisonMode) {
-                        applyVisualizationsForEditor(textInput2, overlay2);
-                    }
-                }
-            }
-
-            // --- Stats & Observers ---
-
-            function updateStats() {
-                // Determine which text to count. In comparison mode, usually the one the user is editing (activeInput)
-                let text = getRawTextFromContentEditable(activeInput);
-                
-                if (text === 'Type or paste your text here...' && activeInput.innerText.trim() === 'Type or paste your text here...') {
-                   text = '';
-                }
-                
-                const charCount = text.length;
-                const controlCharsRegex = /[\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u200B]/g;
-                const cleanText = text.replace(controlCharsRegex, '');
-                const charCountNoControl = cleanText.length;
-                const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).filter(w => w.length > 0).length;
-
-                document.getElementById('charCount').textContent = charCount;
-                document.getElementById('charCountNoControl').textContent = charCountNoControl;
-                document.getElementById('wordCount').textContent = wordCount;
-
-                // Live diff trigger
-                if (isDiffActive) {
-                    clearTimeout(diffDebounceTimer);
-                    diffDebounceTimer = setTimeout(updateRealTimeDiff, 500); // 500ms debounce
-                }
-            }
-
-            // Observers for both inputs
-            const observerConfig = { childList: true, subtree: true, characterData: true };
-            
-            const observer1 = new MutationObserver(() => {
-                if (isVisualizationActive && !isDiffActive) window.requestAnimationFrame(() => applyVisualizationsForEditor(textInput, overlay));
-                if (activeInput === textInput) updateStats();
-            });
-            
-            const observer2 = new MutationObserver(() => {
-                if (isVisualizationActive && !isDiffActive) window.requestAnimationFrame(() => applyVisualizationsForEditor(textInput2, overlay2));
-                if (activeInput === textInput2) updateStats();
-            });
-
-            // --- Functionality Logic ---
-
-            function runSubstitutions(targetEditor, isReversed = false) {
-                // If diff mode is active, don't run substitutions as it will mess up the HTML structure of diffs
-                if (isDiffActive) return;
-
-                // Special line break substitution
-                if (document.getElementById('sub-check-0').checked) {
-                    if (isReversed) {
-                        let content = targetEditor.innerText;
-                        content = content.replace(/\n/g, '\\n');
-                        targetEditor.innerHTML = `<div>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
-                    } else {
-                        const walker = document.createTreeWalker(targetEditor, NodeFilter.SHOW_TEXT);
-                        while(walker.nextNode()) {
-                            walker.currentNode.nodeValue = walker.currentNode.nodeValue.replace(/\\n/g, '\n');
-                        }
-                        let currentHTML = targetEditor.innerHTML;
-                        currentHTML = currentHTML.replace(/<br>/gi, '\n').replace(/<\/br>/gi, '');
-                        targetEditor.innerHTML = `<div>${currentHTML.replace(/\n/g, '</div><div>')}</div>`;
-                    }
-                }
-
-                const walker = document.createTreeWalker(targetEditor, NodeFilter.SHOW_TEXT);
-                let nodes = [];
-                while(walker.nextNode()) nodes.push(walker.currentNode);
-
-                for (let i = 1; i <= 8; i++) {
-                    const checkbox = document.getElementById(`sub-check-${i}`);
-                    if (checkbox && checkbox.checked) {
-                        const fromVal = document.getElementById(`sub-from-${i}`).value;
-                        const toVal = document.getElementById(`sub-to-${i}`).value;
-                        const findVal = isReversed ? toVal : fromVal;
-                        const replaceVal = isReversed ? fromVal : toVal;
-                        if (findVal) {
-                            nodes.forEach(node => {
-                                node.nodeValue = node.nodeValue.replace(new RegExp(findVal, 'g'), replaceVal);
-                            });
-                        }
-                    }
-                }
-            }
-
-            function toggleVisualizationMode() {
-                isVisualizationActive = !isVisualizationActive;
-                const button = document.getElementById('vizToggleButton');
-                const indicator = document.getElementById('vizIndicator');
-                 
-                button.textContent = isVisualizationActive ? 'Hide Visualization' : 'Show Visualization';
-                button.classList.toggle('is-active-btn');
-                indicator.style.width = isVisualizationActive ? `calc(100% - 0.5rem)` : '0';
-
-                if (isVisualizationActive) {
-                    runSubstitutions(textInput, false);
-                    if(isComparisonMode) runSubstitutions(textInput2, false);
-                    observer1.observe(textInput, observerConfig);
-                    if(isComparisonMode) observer2.observe(textInput2, observerConfig);
-                    setTimeout(applyAllVisualizations, 0);
-                } else {
-                    runSubstitutions(textInput, true);
-                    if(isComparisonMode) runSubstitutions(textInput2, true);
-                    observer1.disconnect();
-                    observer2.disconnect();
-                    overlay.innerHTML = '';
-                    overlay2.innerHTML = '';
-                    observer1.observe(textInput, observerConfig);
-                    if(isComparisonMode) observer2.observe(textInput2, observerConfig);
-                }
-                updateStats();
-            }
-
-            // --- Comparison Mode Logic ---
-
-            function toggleComparisonMode() {
-                isComparisonMode = !isComparisonMode;
-                const mainContainer = document.getElementById('mainContainer');
-                
-                // Toggle Button Style
-                comparisonBtn.textContent = isComparisonMode ? "Close Comparison" : "Comparison Mode";
-                comparisonBtn.classList.toggle('is-active-btn');
-                compIndicator.style.width = isComparisonMode ? `calc(100% - 0.5rem)` : '0';
-
-                // Always clear visualizations on toggle to reset positions
-                overlay.innerHTML = '';
-                overlay2.innerHTML = '';
-
-                if (isComparisonMode) {
-                    // Activate Comparison
-                    
-                    // Duplicate content: Left -> Right
-                    textInput2.innerHTML = textInput.innerHTML;
-                    
-                    // Show second box
-                    editorGrid.classList.add('comparison-active');
-                    rightWrapper.classList.remove('hidden');
-                    labelLeft.classList.remove('hidden');
-                    diffToggleContainer.classList.remove('hidden');
-                    
-                    // Expand main container to fit
-                    mainContainer.style.maxWidth = '100%';
-                    
-                    // Attach observers
-                    observer2.observe(textInput2, observerConfig);
-                    activeInput = textInput2; // Focus usually shifts to the new working copy
-                    
-                    // Re-apply visualization after transition
-                    if (isVisualizationActive) {
-                        setTimeout(applyAllVisualizations, 300);
-                    }
-
-                } else {
-                    // Deactivate Comparison
-                    
-                    // Turn off diffs if on
-                    if (isDiffActive) toggleDiffMode();
-
-                    // Restore Content: Right -> Left (User keeps changes from the comparison/right box)
-                    textInput.innerHTML = textInput2.innerHTML;
-                    
-                    // Hide second box
-                    editorGrid.classList.remove('comparison-active');
-                    rightWrapper.classList.add('hidden');
-                    labelLeft.classList.add('hidden');
-                    diffToggleContainer.classList.add('hidden');
-                    
-                    // Restore container
-                    mainContainer.style.maxWidth = '800px';
-                    
-                    observer2.disconnect();
-                    activeInput = textInput;
-                    
-                    // Re-apply visualization after transition
-                    if (isVisualizationActive) {
-                        setTimeout(applyAllVisualizations, 300);
-                    }
-                }
-                updateStats();
-            }
-
-            // Cursor Preservation Helper
-            function saveSelection(containerEl) {
-                const sel = window.getSelection();
-                if (!sel.rangeCount) return null;
-                const range = sel.getRangeAt(0);
-                const preSelectionRange = range.cloneRange();
-                preSelectionRange.selectNodeContents(containerEl);
-                preSelectionRange.setEnd(range.startContainer, range.startOffset);
-                const start = preSelectionRange.toString().length;
-                return {
-                    start: start,
-                    end: start + range.toString().length
-                };
-            }
-
-            function restoreSelection(containerEl, savedSel) {
-                if (!savedSel) return;
-                const charIndex = savedSel.start;
-                const range = document.createRange();
-                range.setStart(containerEl, 0);
-                range.collapse(true);
-                const nodeStack = [containerEl];
-                let node, foundStart = false, stop = false;
-                let charCount = 0;
-
-                while (!stop && (node = nodeStack.pop())) {
-                    if (node.nodeType === 3) {
-                        const nextCharCount = charCount + node.length;
-                        if (!foundStart && charIndex >= charCount && charIndex <= nextCharCount) {
-                            range.setStart(node, charIndex - charCount);
-                            foundStart = true;
-                        }
-                        if (foundStart && charIndex <= nextCharCount) {
-                            range.setEnd(node, charIndex - charCount);
-                            stop = true;
-                        }
-                        charCount = nextCharCount;
-                    } else {
-                        let i = node.childNodes.length;
-                        while (i--) {
-                            nodeStack.push(node.childNodes[i]);
-                        }
-                    }
-                }
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-
-            function updateRealTimeDiff() {
-                if (!isDiffActive || !isComparisonMode) return;
-                
-                // Identify which element has focus to preserve cursor
-                const focusedEl = document.activeElement;
-                let savedSel = null;
-                if (focusedEl === textInput || focusedEl === textInput2) {
-                    savedSel = saveSelection(focusedEl);
-                }
-
-                const text1 = textInput.innerText; // Original
-                const text2 = textInput2.innerText; // Modified
-                
-                const diffs = dmp.diff_main(text1, text2);
-                dmp.diff_cleanupSemantic(diffs);
-                
-                let htmlLeft = '';
-                let htmlRight = '';
-                
-                diffs.forEach(part => {
-                    const type = part[0]; // -1 (delete), 0 (equal), 1 (insert)
-                    let text = part[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-                    
-                    if (type === 0) {
-                        htmlLeft += text;
-                        htmlRight += text;
-                    } else if (type === -1) {
-                        htmlLeft += `<span class="diff-del">${text}</span>`;
-                    } else if (type === 1) {
-                        htmlRight += `<span class="diff-ins">${text}</span>`;
-                    }
-                });
-
-                textInput.innerHTML = `<div>${htmlLeft}</div>`;
-                textInput2.innerHTML = `<div>${htmlRight}</div>`;
-
-                // Restore cursor
-                if (savedSel && (focusedEl === textInput || focusedEl === textInput2)) {
-                    restoreSelection(focusedEl, savedSel);
-                }
-                
-                if (isVisualizationActive) {
-                     applyAllVisualizations();
-                }
-            }
-
-            function toggleDiffMode(forceState = null) {
-                if (forceState !== null) isDiffActive = !forceState; // toggle below will flip it back
-                isDiffActive = !isDiffActive;
-                
-                const button = document.getElementById('diffToggleButton');
-                const indicator = document.getElementById('diffIndicator');
-                
-                button.textContent = isDiffActive ? 'Hide Diffs' : 'Show Diffs';
-                button.classList.toggle('is-active-btn');
-                indicator.style.width = isDiffActive ? `calc(100% - 0.5rem)` : '0';
-
-                if (isDiffActive) {
-                    // Update diffs immediately
-                    updateRealTimeDiff();
-                } else {
-                    // Clean diffs
-                    const normalize = (el) => {
-                        const txt = el.innerText;
-                        const lines = txt.split('\n');
-                        el.innerHTML = lines.map(l => `<div>${l.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</div>`).join('');
-                    };
-
-                    normalize(textInput);
-                    normalize(textInput2);
-                    
-                    if (isVisualizationActive) {
-                        applyVisualizationsForEditor(textInput, overlay);
-                        applyVisualizationsForEditor(textInput2, overlay2);
-                    }
-                }
-            }
-
-            // --- General Utilities ---
-
-            function replaceAll() {
-                const findValue = document.getElementById('findInput').value;
-                const replaceValue = document.getElementById('replaceInput').value;
-                if (!findValue) return showTemporaryMessage('Find field cannot be empty.', 'error');
-
-                const findRegex = new RegExp(findValue, 'g');
-                let count = 0;
-                
-                const walker = document.createTreeWalker(activeInput, NodeFilter.SHOW_TEXT);
-                let nodes = [];
-                while(walker.nextNode()) nodes.push(walker.currentNode);
-
-                nodes.forEach(node => {
-                    const matches = node.nodeValue.match(findRegex);
-                    if (matches) {
-                        count += matches.length;
-                        node.nodeValue = node.nodeValue.replace(findRegex, replaceValue);
-                    }
-                });
-
-                if (isVisualizationActive) {
-                    applyVisualizationsForEditor(textInput, overlay);
-                    if(isComparisonMode) applyVisualizationsForEditor(textInput2, overlay2);
-                }
-                
-                showTemporaryMessage(`${count} replacement(s) made.`, 'success');
-                document.getElementById('findReplaceDropdownMenu').classList.add('hidden');
-                updateStats();
-            }
-
-            function setDirection(dir) {
-                const activeIndicator = document.getElementById('directionIndicator');
-                const activeBtn = document.getElementById(`btn-${dir}`);
-                if (activeBtn) {
-                    document.querySelectorAll('#directionToggle button').forEach(b => b.classList.remove('is-active-btn'));
-                    activeBtn.classList.add('is-active-btn');
-                    activeIndicator.style.left = `${activeBtn.offsetLeft}px`;
-                    activeIndicator.style.width = `${activeBtn.offsetWidth}px`;
-                }
-                
-                textInput.setAttribute('dir', dir);
-                textInput2.setAttribute('dir', dir);
-                
-                if (isVisualizationActive) applyAllVisualizations();
-            }
-
-            function insertControlChar(char) {
-                activeInput.focus();
-                
-                // Attempt to restore the last known selection
-                if (lastSelectionRange) {
-                    // Only restore if the range belongs to the active input to prevent jumping
-                    if (activeInput.contains(lastSelectionRange.commonAncestorContainer)) {
-                        try {
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(lastSelectionRange);
-                        } catch (e) {
-                           // Fallback
-                        }
-                    }
-                }
-
-                document.execCommand('insertText', false, char);
-                document.getElementById('insertDropdownMenu').classList.add('hidden');
-                updateStats();
-            }
-
-            function getRawTextFromContentEditable(element) {
-                return element.innerText;
-            }
-
-            function copyText() {
-                const textToCopy = getRawTextFromContentEditable(activeInput);
-                const textArea = document.createElement("textarea");
-                textArea.value = textToCopy;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = "0";
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    showTemporaryMessage('Text copied!', 'success');
-                } catch (err) { showTemporaryMessage('Copy failed!', 'error'); }
-                document.body.removeChild(textArea);
-            }
-             
-            function saveText() {
-                const textToSave = getRawTextFromContentEditable(activeInput);
-                const blob = new Blob([textToSave], { type: 'text/plain' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'text-content.txt';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-
-            function openFile() { document.getElementById('fileInput').click(); }
-            function showTemporaryMessage(msg, type = "info") {
-                let d = document.getElementById('messageDisplay');
-                d.textContent = msg;
-                d.style.backgroundColor = (type === "success") ? '#059669' : '#dc2626';
-                d.style.opacity = '1';
-                setTimeout(() => { d.style.opacity = '0'; }, 2000);
-            }
-             
-            function setupDropdowns() {
-                const dropdowns = [
-                    { btn: 'insertDropdownBtn', menu: 'insertDropdownMenu' },
-                    { btn: 'findReplaceDropdownBtn', menu: 'findReplaceDropdownMenu' },
-                    { btn: 'substitutionsDropdownBtn', menu: 'substitutionsDropdownMenu' }
-                ];
-                dropdowns.forEach(d => {
-                    const btn = document.getElementById(d.btn);
-                    const menu = document.getElementById(d.menu);
-                    btn.addEventListener('click', e => {
-                        e.stopPropagation();
-                        dropdowns.forEach(other => { if (d.menu !== other.menu) document.getElementById(other.menu).classList.add('hidden'); });
-                        menu.classList.toggle('hidden');
-                    });
-                    menu.addEventListener('click', e => e.stopPropagation());
-                });
-                document.addEventListener('click', () => dropdowns.forEach(d => document.getElementById(d.menu).classList.add('hidden')));
-            }
-
-            function initDefaultContent(input) {
-                if (input.textContent === 'Type or paste your text here...') {
-                    input.innerHTML = '<div></div>';
-                    const range = document.createRange();
-                    const sel = window.getSelection();
-                    range.setStart(input.firstChild, 0);
-                    range.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-            }
-
-            function handleBlur(input) {
-                if (input.innerHTML.trim() === '' || input.innerHTML === '<div><br></div>' || input.innerHTML === '<div></div>') {
-                    input.innerHTML = 'Type or paste your text here...';
-                }
-            }
-
-            document.addEventListener('DOMContentLoaded', () => {
-                setupDropdowns();
-                
-                // File Input
-                document.getElementById('fileInput').addEventListener('change', (event) => {
-                    const file = event.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const content = e.target.result;
-                            const lines = content.split('\n');
-                            const html = lines.map(line => `<div>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</div>`).join('');
-                            textInput.innerHTML = html;
-                            if (isComparisonMode) textInput2.innerHTML = html;
-                            if(isVisualizationActive) {
-                                runSubstitutions(textInput, false);
-                                if(isComparisonMode) runSubstitutions(textInput2, false);
-                                applyAllVisualizations();
-                            }
-                            updateStats();
-                        };
-                        reader.readAsText(file);
-                    }
-                    event.target.value = '';
-                });
-
-                // Setup Input 1
-                textInput.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); });
-                textInput.addEventListener('input', updateStats);
-                textInput.addEventListener('focus', () => { activeInput = textInput; initDefaultContent(textInput); });
-                textInput.addEventListener('blur', () => handleBlur(textInput));
-                // Add robust cursor tracking
-                ['keyup', 'mouseup', 'input'].forEach(evt => textInput.addEventListener(evt, updateLastSelection));
-
-                // Setup Input 2
-                textInput2.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); });
-                textInput2.addEventListener('input', updateStats);
-                textInput2.addEventListener('focus', () => { activeInput = textInput2; initDefaultContent(textInput2); });
-                textInput2.addEventListener('blur', () => handleBlur(textInput2));
-                // Add robust cursor tracking
-                ['keyup', 'mouseup', 'input'].forEach(evt => textInput2.addEventListener(evt, updateLastSelection));
-
-                // Initial observers
-                observer1.observe(textInput, observerConfig);
-                
-                setTimeout(() => { setDirection('rtl'); }, 100);
-            });
-        </script>
     </div>
+    
+    <div id="messageDisplay"></div>
+
+    <script>
+        // --- Elements ---
+        const textInput = document.getElementById('textInput');
+        const overlay = document.getElementById('visualizationOverlay');
+        const textInput2 = document.getElementById('textInput2');
+        const overlay2 = document.getElementById('visualizationOverlay2');
+        
+        const editorGrid = document.getElementById('editorGrid');
+        const rightCol = document.getElementById('rightCol');
+        const comparisonBtn = document.getElementById('comparisonBtn');
+        const diffBtn = document.getElementById('diffToggleButton');
+        const diffToggleContainer = document.getElementById('diffToggleContainer');
+        const labelLeft = document.getElementById('labelLeft');
+        const matchCounter = document.getElementById('matchCounter');
+
+        // --- State ---
+        let isVisualizationActive = false;
+        let isComparisonMode = false;
+        let isDiffActive = false;
+        let activeInput = textInput; 
+        let diffDebounceTimer;
+        let lastSelectionRange = null; 
+        
+        // Define observers globally
+        let observer1, observer2;
+        const observerConfig = {childList: true, subtree: true, characterData: true};
+        
+        const dmp = new diff_match_patch();
+
+        const DISPLAY_SYMBOLS = {
+            ' ': '·', '\u200E': '⎣', '\u200F': '⎤', '\u202A': '⧽', '\u202B': '⧼',
+            '\u00A0': '◦', '\u2011': '⸫', '\n': '¶', '\t': '↹', '\u2013': '–', '\u2026': '…'
+        };
+        const SPECIAL_CHARS_SET = new Set(Object.keys(DISPLAY_SYMBOLS));
+
+        function updateLastSelection() {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                if ((textInput.contains(range.commonAncestorContainer)) || (textInput2.contains(range.commonAncestorContainer))) {
+                    lastSelectionRange = range.cloneRange();
+                }
+            }
+        }
+
+        // --- Visualization Logic ---
+        function createMarker(text, rect, editorRect, parentOverlay, className = '') {
+            const marker = document.createElement('div');
+            marker.textContent = text;
+            marker.className = `overlay-marker ${className}`;
+            
+            const left = rect.left - editorRect.left;
+            const top = rect.top - editorRect.top;
+
+            if (className === 'highlight-match') {
+                 marker.style.width = `${rect.width}px`;
+                 marker.style.height = `${rect.height}px`;
+                 marker.style.left = `${left}px`;
+                 marker.style.top = `${top}px`;
+            } else if (className === 'break') {
+                marker.style.left = `${left}px`;
+                marker.style.top = `${top + (rect.height / 2)}px`;
+                marker.style.transform = 'translateY(-50%)';
+            } else {
+                marker.style.left = `${left + (rect.width / 2)}px`;
+                marker.style.top = `${top + (rect.height / 2)}px`;
+            }
+            parentOverlay.appendChild(marker);
+        }
+
+        function visualizeMatches(editorElement, overlayElement) {
+            const findValue = document.getElementById('findInput').value;
+            if (!findValue) return;
+
+            const isRegex = document.getElementById('regexToggle').checked;
+            let regex;
+            try {
+                regex = isRegex ? new RegExp(findValue, 'gi') : new RegExp(findValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            } catch(e) { return; }
+
+            const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT);
+            const range = document.createRange();
+            const editorRect = editorElement.getBoundingClientRect();
+
+            let node;
+            while(node = walker.nextNode()) {
+                let match;
+                while ((match = regex.exec(node.nodeValue)) !== null) {
+                    try {
+                        range.setStart(node, match.index);
+                        range.setEnd(node, match.index + match[0].length);
+                        const rects = range.getClientRects();
+                        for (let rect of rects) {
+                            createMarker('', rect, editorRect, overlayElement, 'highlight-match');
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+
+        function applyVisualizationsForEditor(editorElement, overlayElement) {
+            overlayElement.innerHTML = '';
+            overlayElement.scrollTop = editorElement.scrollTop;
+            overlayElement.scrollLeft = editorElement.scrollLeft;
+
+            visualizeMatches(editorElement, overlayElement);
+
+            if (!isVisualizationActive) return;
+
+            const range = document.createRange();
+            const editorRect = editorElement.getBoundingClientRect();
+            
+            const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT);
+            let node;
+            while(node = walker.nextNode()) {
+                const textContent = node.nodeValue;
+                for (let i = 0; i < textContent.length; i++) {
+                    const char = textContent[i];
+                    if (SPECIAL_CHARS_SET.has(char) && char !== '\n') {
+                        try {
+                            range.setStart(node, i);
+                            range.setEnd(node, i + 1);
+                            const rects = range.getClientRects();
+                            if (rects.length > 0) {
+                                let className = 'special';
+                                if (char === ' ') className = 'space';
+                                createMarker(DISPLAY_SYMBOLS[char], rects[0], editorRect, overlayElement, className);
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            const brs = editorElement.getElementsByTagName('BR');
+            for(let br of brs) {
+                const rect = br.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) continue; 
+                createMarker(DISPLAY_SYMBOLS['\n'], rect, editorRect, overlayElement, 'break');
+            }
+            
+            for(let child of editorElement.children) {
+                if(child.tagName === 'DIV') {
+                    if (child.lastChild && child.lastChild.nodeType === Node.TEXT_NODE) {
+                         range.selectNodeContents(child);
+                         range.collapse(false);
+                         const rects = range.getClientRects();
+                         if(rects.length > 0) {
+                             const r = rects[0];
+                             const markerRect = { left: (window.getComputedStyle(editorElement).direction === 'rtl' ? r.left - 10 : r.right), top: r.top, width: 0, height: r.height };
+                             createMarker(DISPLAY_SYMBOLS['\n'], markerRect, editorRect, overlayElement, 'break');
+                         }
+                    }
+                }
+            }
+        }
+
+        function applyAllVisualizations() {
+            applyVisualizationsForEditor(textInput, overlay);
+            if (isComparisonMode) applyVisualizationsForEditor(textInput2, overlay2);
+        }
+
+        // Stats & Logic
+        function updateStats() {
+            let text = activeInput.innerText;
+            if (text === 'Type or paste your text here...' && activeInput.innerText.trim() === 'Type or paste your text here...') text = '';
+            
+            document.getElementById('charCount').textContent = text.length;
+            document.getElementById('charCountNoControl').textContent = text.replace(/[\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u200B]/g, '').length;
+            document.getElementById('wordCount').textContent = text.trim() === '' ? 0 : text.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+            if (isDiffActive) {
+                clearTimeout(diffDebounceTimer);
+                diffDebounceTimer = setTimeout(updateRealTimeDiff, 500); 
+            }
+            updateMatchCount();
+        }
+
+        // Comparison & Diff
+        function toggleComparisonMode() {
+            isComparisonMode = !isComparisonMode;
+            
+            if (isComparisonMode) {
+                comparisonBtn.classList.add('is-active-btn');
+                comparisonBtn.innerHTML = '<span class="material-symbols-outlined">split_scene</span>';
+                comparisonBtn.title = "Close Comparison";
+                
+                diffToggleContainer.classList.remove('hidden');
+                rightCol.classList.remove('hidden');
+                labelLeft.classList.remove('hidden');
+                editorGrid.classList.add('comparison-active');
+                
+                textInput2.innerHTML = textInput.innerHTML;
+                activeInput = textInput2;
+                
+                observer2.observe(textInput2, observerConfig);
+            } else {
+                comparisonBtn.classList.remove('is-active-btn');
+                comparisonBtn.innerHTML = '<span class="material-symbols-outlined">view_column_2</span>';
+                comparisonBtn.title = "Comparison Mode";
+
+                if (isDiffActive) toggleDiffMode(); 
+
+                diffToggleContainer.classList.add('hidden');
+                rightCol.classList.add('hidden');
+                labelLeft.classList.add('hidden');
+                editorGrid.classList.remove('comparison-active');
+                
+                textInput.innerHTML = textInput2.innerHTML;
+                activeInput = textInput;
+                
+                observer2.disconnect();
+            }
+            setTimeout(applyAllVisualizations, 300);
+        }
+
+        function updateRealTimeDiff() {
+            if (!isDiffActive || !isComparisonMode) return;
+            
+            const s1 = textInput.scrollTop;
+            const s2 = textInput2.scrollTop;
+
+            const text1 = textInput.innerText; 
+            const text2 = textInput2.innerText; 
+            
+            const diffs = dmp.diff_main(text1, text2);
+            dmp.diff_cleanupSemantic(diffs);
+            
+            let htmlLeft = '';
+            let htmlRight = '';
+            
+            diffs.forEach(part => {
+                const type = part[0]; 
+                let text = part[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+                
+                if (type === 0) {
+                    htmlLeft += text;
+                    htmlRight += text;
+                } else if (type === -1) {
+                    htmlLeft += `<span class="diff-del">${text}</span>`;
+                } else if (type === 1) {
+                    htmlRight += `<span class="diff-ins">${text}</span>`;
+                }
+            });
+
+            textInput.innerHTML = `<div>${htmlLeft}</div>`;
+            textInput2.innerHTML = `<div>${htmlRight}</div>`;
+            
+            textInput.scrollTop = s1;
+            textInput2.scrollTop = s2;
+
+            applyAllVisualizations();
+        }
+
+        function toggleDiffMode() {
+            isDiffActive = !isDiffActive;
+            if (isDiffActive) {
+                diffBtn.classList.add('is-active-btn');
+                diffBtn.innerHTML = '<span class="material-symbols-outlined">article</span>';
+                diffBtn.title = "Hide Diffs";
+                updateRealTimeDiff();
+            } else {
+                diffBtn.classList.remove('is-active-btn');
+                diffBtn.innerHTML = '<span class="material-symbols-outlined">text_compare</span>';
+                diffBtn.title = "Show Diffs";
+                
+                const stripDiffTags = (el) => {
+                    el.innerHTML = el.innerHTML.replace(/<span class="diff-(?:del|ins)"[^>]*>([\s\S]*?)<\/span>/g, '$1');
+                };
+                
+                stripDiffTags(textInput);
+                stripDiffTags(textInput2);
+                
+                setTimeout(applyAllVisualizations, 0);
+            }
+        }
+
+        // Toggles & Actions
+        function toggleVisualizationMode() {
+            isVisualizationActive = !isVisualizationActive;
+            const btn = document.getElementById('vizToggleButton');
+            btn.classList.toggle('is-active-btn');
+            btn.innerHTML = isVisualizationActive ? '<span class="material-symbols-outlined">visibility_off</span>' : '<span class="material-symbols-outlined">visibility</span>';
+            btn.title = isVisualizationActive ? "Hide Visualization" : "Show Visualization";
+            applyAllVisualizations();
+        }
+
+        function setDirection(dir) {
+            document.querySelectorAll('.toggle-container button').forEach(b => {
+               if(b.id && b.id.startsWith('btn-')) b.classList.remove('is-active-btn');
+            });
+            const btn = document.getElementById(`btn-${dir}`);
+            if(btn) btn.classList.add('is-active-btn');
+            
+            textInput.setAttribute('dir', dir);
+            textInput2.setAttribute('dir', dir);
+            applyAllVisualizations();
+        }
+
+        // Find & Replace
+        function getMatchCount(text, regex) {
+            if (!text || !regex) return 0;
+            const matches = text.match(regex);
+            return matches ? matches.length : 0;
+        }
+
+        function updateMatchCount() {
+            const val = document.getElementById('findInput').value;
+            const isRegex = document.getElementById('regexToggle').checked;
+            
+            if (!val) { 
+                matchCounter.textContent = "0 matches"; 
+                return; 
+            }
+            
+            let regex;
+            try {
+                regex = isRegex ? new RegExp(val, 'gi') : new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            } catch(e) { 
+                matchCounter.textContent = "Invalid Regex"; 
+                return; 
+            }
+
+            if (isComparisonMode) {
+                const count1 = getMatchCount(textInput.innerText, regex);
+                const count2 = getMatchCount(textInput2.innerText, regex);
+                matchCounter.textContent = `${count1} (Orig) | ${count2} (Mod)`;
+            } else {
+                const count = getMatchCount(activeInput.innerText, regex);
+                matchCounter.textContent = `${count} matches`;
+            }
+            applyAllVisualizations();
+        }
+
+        function findNext() {
+            const val = document.getElementById('findInput').value;
+            if(!val) return;
+            
+            // In comparison mode, always focus modified box first
+            if (isComparisonMode) textInput2.focus();
+            
+            if(!window.find(val, false, false, true, false, false, false)) {
+                // Wrap around
+                const target = isComparisonMode ? textInput2 : activeInput;
+                window.getSelection().collapse(target, 0);
+                window.find(val, false, false, true, false, false, false);
+            }
+        }
+        function highlightMatches() { applyAllVisualizations(); }
+        
+        function replaceNext() {
+            const findVal = document.getElementById('findInput').value;
+            const repVal = document.getElementById('replaceInput').value;
+            if(!findVal) return;
+            
+            // Comparison mode: focus target right box
+            if (isComparisonMode) textInput2.focus();
+
+            const sel = window.getSelection();
+            // In Comparison Mode, ensure selection is in the right box
+            if (isComparisonMode && !textInput2.contains(sel.anchorNode)) {
+                 findNext();
+                 return;
+            }
+
+            if(!sel.isCollapsed && sel.toString().toLowerCase() === findVal.toLowerCase()) { 
+                document.execCommand('insertText', false, repVal);
+            }
+            findNext();
+        }
+        
+        function replaceAll() {
+            const findVal = document.getElementById('findInput').value;
+            const repVal = document.getElementById('replaceInput').value;
+            if(!findVal) return;
+            
+            const isRegex = document.getElementById('regexToggle').checked;
+            try {
+                const regex = isRegex ? new RegExp(findVal, 'g') : new RegExp(findVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                
+                // Target: Comparison Mode -> Right Box, Normal -> Active Box
+                const target = isComparisonMode ? textInput2 : activeInput;
+                
+                const txt = target.innerText;
+                const newTxt = txt.replace(regex, repVal);
+                const lines = newTxt.split('\n');
+                target.innerHTML = lines.map(l => `<div>${l.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</div>`).join('');
+                
+                updateStats();
+                applyAllVisualizations();
+            } catch(e) { console.error(e); }
+        }
+
+        // Generic
+        function insertControlChar(c) {
+            activeInput.focus();
+            document.execCommand('insertText', false, c);
+            document.getElementById('insertDropdownMenu').classList.add('hidden');
+            updateStats();
+        }
+        function showTemporaryMessage(msg) {
+            const el = document.getElementById('messageDisplay');
+            el.textContent = msg;
+            el.style.backgroundColor = '#374151';
+            el.style.opacity = '1';
+            setTimeout(() => el.style.opacity = '0', 2000);
+        }
+        function copyText() {
+            navigator.clipboard.writeText(activeInput.innerText).then(() => showTemporaryMessage('Copied!'));
+        }
+        function saveText() {
+            const blob = new Blob([activeInput.innerText], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'text.txt';
+            a.click();
+        }
+        function openFile() { document.getElementById('fileInput').click(); }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            const dropdowns = [
+                {btn: 'insertDropdownBtn', menu: 'insertDropdownMenu'},
+                {btn: 'substitutionsDropdownBtn', menu: 'substitutionsDropdownMenu'}
+            ];
+            dropdowns.forEach(d => {
+                document.getElementById(d.btn).addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.getElementById(d.menu).classList.toggle('hidden');
+                });
+            });
+            document.addEventListener('click', () => dropdowns.forEach(d => document.getElementById(d.menu).classList.add('hidden')));
+
+            // Observers
+            observer1 = new MutationObserver(() => {
+                if(!isDiffActive) requestAnimationFrame(() => applyVisualizationsForEditor(textInput, overlay));
+                if(activeInput === textInput) updateStats();
+            });
+            observer2 = new MutationObserver(() => {
+                if(!isDiffActive) requestAnimationFrame(() => applyVisualizationsForEditor(textInput2, overlay2));
+                if(activeInput === textInput2) updateStats();
+            });
+            observer1.observe(textInput, observerConfig);
+            
+            // Sync scrolling
+            textInput.addEventListener('scroll', () => overlay.scrollTop = textInput.scrollTop);
+            textInput2.addEventListener('scroll', () => overlay2.scrollTop = textInput2.scrollTop);
+            
+            // Cursor tracking for active input switching
+            textInput.addEventListener('focus', () => { activeInput = textInput; });
+            textInput2.addEventListener('focus', () => { activeInput = textInput2; });
+            ['keyup', 'mouseup', 'input'].forEach(evt => textInput.addEventListener(evt, updateLastSelection));
+            ['keyup', 'mouseup', 'input'].forEach(evt => textInput2.addEventListener(evt, updateLastSelection));
+
+            setTimeout(() => setDirection('rtl'), 100);
+        });
+    </script>
 </body>
 </html>
