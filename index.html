@@ -299,6 +299,40 @@
         .diff-del { background-color: #fecaca; text-decoration: line-through; color: #991b1b; }
         .diff-ins { background-color: #bbf7d0; color: #166534; }
         
+        .tag-highlight {
+            background-color: #e0e7ff; /* Light indigo */
+            color: #3730a3; /* Dark indigo */
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+
+        .placeholder-highlight {
+            background-color: #dcfce7; /* Light green */
+            color: #166534; /* Dark green */
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.375rem;
+            font-style: italic;
+        }
+
+        .tag-highlight.paired-opener {
+            position: relative;
+            margin-right: 2px;
+        }
+
+        .tag-highlight.paired-opener::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -6px; /* Adjust as needed */
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 6px solid #e0e7ff; /* Same as background color */
+        }
+
         .hidden { display: none !important; }
         
         #messageDisplay {
@@ -312,8 +346,6 @@
     <div class="app-container">
         <!-- Header -->
         <div class="app-header">
-            
-            
             <div class="control-row">
                 <!-- Direction -->
                 <div class="toggle-container">
@@ -326,6 +358,13 @@
                 <div class="toggle-container">
                     <button id="vizToggleButton" onclick="toggleVisualizationMode()" class="control-btn" title="Show Visualization">
                         <span class="material-symbols-outlined">visibility</span>
+                    </button>
+                </div>
+
+                <!-- Tags and PHs Toggle -->
+                <div class="toggle-container">
+                    <button id="tagsPhsToggleButton" onclick="toggleTagsPhsMode()" class="control-btn" title="Enable Tags and Placeholders Mode">
+                        <span class="material-symbols-outlined">sell</span>
                     </button>
                 </div>
 
@@ -355,24 +394,6 @@
                         <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
                         <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
                         <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
-                    </div>
-                </div>
-
-                <div class="dropdown-wrapper">
-                    <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
-                    <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
-                        <div class="space-y-2">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-0"><label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label></div>
-                            <hr style="width:100%; border-color:#e5e7eb; margin: 0.5rem 0;">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-1"><input type="text" id="sub-from-1" class="dropdown-input"><span>→</span><input type="text" id="sub-to-1" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-2"><input type="text" id="sub-from-2" class="dropdown-input"><span>→</span><input type="text" id="sub-to-2" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-3"><input type="text" id="sub-from-3" class="dropdown-input"><span>→</span><input type="text" id="sub-to-3" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-4"><input type="text" id="sub-from-4" class="dropdown-input"><span>→</span><input type="text" id="sub-to-4" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-5"><input type="text" id="sub-from-5" class="dropdown-input"><span>→</span><input type="text" id="sub-to-5" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-6"><input type="text" id="sub-from-6" class="dropdown-input"><span>→</span><input type="text" id="sub-to-6" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-7"><input type="text" id="sub-from-7" class="dropdown-input"><span>→</span><input type="text" id="sub-to-7" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-8"><input type="text" id="sub-from-8" class="dropdown-input"><span>→</span><input type="text" id="sub-to-8" class="dropdown-input"></div>
-                        </div>
                     </div>
                 </div>
 
@@ -435,6 +456,16 @@
                 </div>
             </div>
 
+            <div id="tagsPhsSection" class="find-bar">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-lg">Tags and PHs</h3>
+                    <button class="action-btn" onclick="manualDetectAndRender()">Detect Tags</button>
+                </div>
+                <div id="tagsPhsContent" class="space-y-2 max-h-48 overflow-y-auto">
+                    <p class="text-gray-500">Click "Detect Tags" to find tags and placeholders.</p>
+                </div>
+            </div>
+
             <div style="text-align: center; margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 1rem;">
                 <button class="action-btn" onclick="copyText()">Copy Text</button>
                 <button class="secondary-btn" onclick="saveText()">Save File</button>
@@ -477,6 +508,11 @@
 
         // --- State ---
         let isVisualizationActive = false;
+        let isTagsPhsModeActive = false;
+        let tagsPhsState = {
+            originalText: '',
+            tags: []
+        };
         let isComparisonMode = false;
         let isDiffActive = false;
         let activeInput = textInput; 
@@ -503,6 +539,35 @@
                     lastSelectionRange = range.cloneRange();
                 }
             }
+        }
+
+        function detectTags(text) {
+            const regex = /\\n|<[^>]+>|{\w+}|[A-Z]{2,}(?:_[A-Z]+)*/g;
+            const matches = text.match(regex) || [];
+            const uniqueTags = [...new Set(matches)];
+
+            return uniqueTags.map(tag => {
+                let type = 'placeholder';
+                if (tag.startsWith('<') && tag.endsWith('>')) type = 'html';
+                if (tag === '\\n') type = 'newline';
+
+                return {
+                    text: tag,
+                    type: type,
+                    renderOption: 'highlight',
+                    placeholderText: '',
+                    isPaired: isPaired(tag, uniqueTags)
+                };
+            });
+        }
+
+        function isPaired(tag, allTags) {
+            if (!tag.startsWith('<') || !tag.endsWith('>')) return false;
+            if (tag.startsWith('</')) return false; // It's a closing tag
+
+            const tagName = tag.substring(1, tag.length - 1).split(' ')[0];
+            const closingTag = `</${tagName}>`;
+            return allTags.includes(closingTag);
         }
 
         // --- Visualization Logic ---
@@ -744,6 +809,130 @@
             btn.innerHTML = isVisualizationActive ? '<span class="material-symbols-outlined">visibility_off</span>' : '<span class="material-symbols-outlined">visibility</span>';
             btn.title = isVisualizationActive ? "Hide Visualization" : "Show Visualization";
             applyAllVisualizations();
+        }
+
+        function toggleTagsPhsMode() {
+            isTagsPhsModeActive = !isTagsPhsModeActive;
+            const btn = document.getElementById('tagsPhsToggleButton');
+            btn.classList.toggle('is-active-btn');
+
+            if (isTagsPhsModeActive) {
+                btn.title = "Disable Tags and Placeholders Mode";
+                // Before rendering, ensure the original text is up-to-date.
+                tagsPhsState.originalText = activeInput.innerText;
+                renderTagsAndPlaceholders();
+            } else {
+                btn.title = "Enable Tags and Placeholders Mode";
+                // Reconstruct the text to preserve edits before reverting the view.
+                tagsPhsState.originalText = reconstructOriginalText();
+                activeInput.innerText = tagsPhsState.originalText;
+            }
+        }
+
+        function manualDetectAndRender() {
+            // If the mode is active, reconstruct the text to get the latest edits.
+            const currentText = isTagsPhsModeActive ? reconstructOriginalText() : activeInput.innerText;
+            tagsPhsState.originalText = currentText;
+            tagsPhsState.tags = detectTags(currentText);
+            updateTagsPhsPanel();
+            if (isTagsPhsModeActive) {
+                renderTagsAndPlaceholders();
+            }
+        }
+
+        function updateTagsPhsPanel() {
+            const contentDiv = document.getElementById('tagsPhsContent');
+            contentDiv.innerHTML = '';
+
+            if (tagsPhsState.tags.length === 0) {
+                contentDiv.innerHTML = '<p class="text-gray-500">No tags or placeholders detected.</p>';
+                return;
+            }
+
+            tagsPhsState.tags.forEach((tag, index) => {
+                const row = document.createElement('div');
+                row.className = 'substitution-row items-center';
+
+                const tagTextDisplay = tag.text === '\\n' ? '\\n (newline)' : tag.text.replace(/</g, '&lt;');
+                row.innerHTML = `
+                    <input type="checkbox" id="tag-${index}-check" class="mr-2" ${tag.renderOption !== 'ignore' ? 'checked' : ''}>
+                    <code class="font-mono bg-gray-200 px-1 rounded-md text-sm">${tagTextDisplay}</code>
+                    <select id="tag-${index}-select" class="mx-2 border border-gray-300 rounded-md p-1">
+                        <option value="highlight" ${tag.renderOption === 'highlight' ? 'selected' : ''}>Highlight</option>
+                        <option value="render" ${tag.renderOption === 'render' ? 'selected' : ''}>Render as formatting</option>
+                        <option value="placeholder" ${tag.renderOption === 'placeholder' ? 'selected' : ''}>Placeholder</option>
+                    </select>
+                    <input type="text" id="tag-${index}-input" class="dropdown-input ${tag.renderOption !== 'placeholder' ? 'hidden' : ''}" placeholder="Replacement text..." value="${tag.placeholderText}">
+                `;
+
+                contentDiv.appendChild(row);
+
+                const checkbox = document.getElementById(`tag-${index}-check`);
+                const select = document.getElementById(`tag-${index}-select`);
+                const input = document.getElementById(`tag-${index}-input`);
+
+                checkbox.addEventListener('change', () => {
+                    tag.renderOption = checkbox.checked ? 'highlight' : 'ignore';
+                    select.value = 'highlight'; // Reset to default when re-enabled
+                    if (isTagsPhsModeActive) renderTagsAndPlaceholders();
+                });
+
+                select.addEventListener('change', () => {
+                    tag.renderOption = select.value;
+                    input.classList.toggle('hidden', select.value !== 'placeholder');
+                    if (isTagsPhsModeActive) renderTagsAndPlaceholders();
+                });
+
+                input.addEventListener('input', () => {
+                    tag.placeholderText = input.value;
+                    if (isTagsPhsModeActive) renderTagsAndPlaceholders();
+                });
+            });
+        }
+
+        function renderTagsAndPlaceholders() {
+            if (!isTagsPhsModeActive) return;
+
+            let renderedText = tagsPhsState.originalText;
+
+            tagsPhsState.tags.forEach(tag => {
+                if (tag.renderOption === 'ignore') return;
+
+                let replacement = '';
+                switch (tag.renderOption) {
+                    case 'highlight':
+                        const className = `tag-highlight ${tag.isPaired ? 'paired-opener' : ''}`;
+                        replacement = `<span class="${className}" data-tag-index="${tagsPhsState.tags.indexOf(tag)}">${tag.text.replace(/</g, '&lt;')}</span>`;
+                        break;
+                    case 'render':
+                        replacement = tag.text === '\\n' ? '<br>' : tag.text;
+                        break;
+                    case 'placeholder':
+                        const placeholderText = tag.placeholderText || tag.text;
+                        replacement = `<span class="placeholder-highlight" data-tag-index="${tagsPhsState.tags.indexOf(tag)}">${placeholderText.replace(/</g, '&lt;')}</span>`;
+                        break;
+                }
+
+                const tagRegex = new RegExp(tag.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                renderedText = renderedText.replace(tagRegex, replacement);
+            });
+
+            activeInput.innerHTML = renderedText.replace(/\n/g, '<br>');
+        }
+
+        function reconstructOriginalText() {
+            const editor = activeInput.cloneNode(true);
+            const spans = editor.querySelectorAll('span[data-tag-index]');
+
+            spans.forEach(span => {
+                const index = parseInt(span.getAttribute('data-tag-index'), 10);
+                const originalTag = tagsPhsState.tags[index];
+                if (originalTag) {
+                    span.replaceWith(document.createTextNode(originalTag.text));
+                }
+            });
+
+            return editor.innerText;
         }
 
         function setDirection(dir) {
