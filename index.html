@@ -299,6 +299,22 @@
         .diff-del { background-color: #fecaca; text-decoration: line-through; color: #991b1b; }
         .diff-ins { background-color: #bbf7d0; color: #166534; }
         
+        .tag-highlight {
+            background-color: #e0e7ff; /* Light indigo */
+            color: #3730a3; /* Dark indigo */
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+
+        .placeholder-highlight {
+            background-color: #dcfce7; /* Light green */
+            color: #166534; /* Dark green */
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.375rem;
+            font-style: italic;
+        }
+
         .hidden { display: none !important; }
         
         #messageDisplay {
@@ -312,8 +328,6 @@
     <div class="app-container">
         <!-- Header -->
         <div class="app-header">
-            
-            
             <div class="control-row">
                 <!-- Direction -->
                 <div class="toggle-container">
@@ -326,6 +340,13 @@
                 <div class="toggle-container">
                     <button id="vizToggleButton" onclick="toggleVisualizationMode()" class="control-btn" title="Show Visualization">
                         <span class="material-symbols-outlined">visibility</span>
+                    </button>
+                </div>
+
+                <!-- Tags and PHs Toggle -->
+                <div class="toggle-container">
+                    <button id="tagsPhsToggleButton" onclick="toggleTagsPhsMode()" class="control-btn" title="Enable Tags and Placeholders Mode">
+                        <span class="material-symbols-outlined">sell</span>
                     </button>
                 </div>
 
@@ -355,24 +376,6 @@
                         <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
                         <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
                         <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
-                    </div>
-                </div>
-
-                <div class="dropdown-wrapper">
-                    <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
-                    <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
-                        <div class="space-y-2">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-0"><label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label></div>
-                            <hr style="width:100%; border-color:#e5e7eb; margin: 0.5rem 0;">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-1"><input type="text" id="sub-from-1" class="dropdown-input"><span>→</span><input type="text" id="sub-to-1" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-2"><input type="text" id="sub-from-2" class="dropdown-input"><span>→</span><input type="text" id="sub-to-2" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-3"><input type="text" id="sub-from-3" class="dropdown-input"><span>→</span><input type="text" id="sub-to-3" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-4"><input type="text" id="sub-from-4" class="dropdown-input"><span>→</span><input type="text" id="sub-to-4" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-5"><input type="text" id="sub-from-5" class="dropdown-input"><span>→</span><input type="text" id="sub-to-5" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-6"><input type="text" id="sub-from-6" class="dropdown-input"><span>→</span><input type="text" id="sub-to-6" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-7"><input type="text" id="sub-from-7" class="dropdown-input"><span>→</span><input type="text" id="sub-to-7" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-8"><input type="text" id="sub-from-8" class="dropdown-input"><span>→</span><input type="text" id="sub-to-8" class="dropdown-input"></div>
-                        </div>
                     </div>
                 </div>
 
@@ -435,6 +438,13 @@
                 </div>
             </div>
 
+            <div id="tagsPhsSection" class="find-bar hidden">
+                <h3 class="font-bold text-lg">Tags and PHs</h3>
+                <div id="tagsPhsContent" class="space-y-2 max-h-48 overflow-y-auto">
+                    <!-- Dynamic content will be injected here -->
+                </div>
+            </div>
+
             <div style="text-align: center; margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 1rem;">
                 <button class="action-btn" onclick="copyText()">Copy Text</button>
                 <button class="secondary-btn" onclick="saveText()">Save File</button>
@@ -477,6 +487,8 @@
 
         // --- State ---
         let isVisualizationActive = false;
+        let isTagsPhsModeActive = false;
+        let originalTextForTagsPhs = '';
         let isComparisonMode = false;
         let isDiffActive = false;
         let activeInput = textInput; 
@@ -503,6 +515,12 @@
                     lastSelectionRange = range.cloneRange();
                 }
             }
+        }
+
+        function detectTags(text) {
+            const regex = /\\n|<[^>]+>|{\w+}|[A-Z]{2,}(?:_[A-Z]+)*/g;
+            const matches = text.match(regex) || [];
+            return [...new Set(matches)];
         }
 
         // --- Visualization Logic ---
@@ -744,6 +762,108 @@
             btn.innerHTML = isVisualizationActive ? '<span class="material-symbols-outlined">visibility_off</span>' : '<span class="material-symbols-outlined">visibility</span>';
             btn.title = isVisualizationActive ? "Hide Visualization" : "Show Visualization";
             applyAllVisualizations();
+        }
+
+        function toggleTagsPhsMode() {
+            isTagsPhsModeActive = !isTagsPhsModeActive;
+            const btn = document.getElementById('tagsPhsToggleButton');
+            const section = document.getElementById('tagsPhsSection');
+
+            if (isTagsPhsModeActive) {
+                btn.classList.add('is-active-btn');
+                btn.title = "Disable Tags and Placeholders Mode";
+                originalTextForTagsPhs = activeInput.innerText;
+                section.classList.remove('hidden');
+                updateTagsPhsPanel();
+                renderTagsAndPlaceholders();
+            } else {
+                btn.classList.remove('is-active-btn');
+                btn.title = "Enable Tags and Placeholders Mode";
+                activeInput.innerText = originalTextForTagsPhs;
+                section.classList.add('hidden');
+            }
+        }
+
+        function updateTagsPhsPanel() {
+            const contentDiv = document.getElementById('tagsPhsContent');
+            const tags = detectTags(originalTextForTagsPhs);
+            contentDiv.innerHTML = '';
+
+            if (tags.length === 0) {
+                contentDiv.innerHTML = '<p class="text-gray-500">No tags or placeholders detected.</p>';
+                return;
+            }
+
+            tags.forEach((tag, index) => {
+                const tagId = `tag-${index}`;
+                const row = document.createElement('div');
+                row.className = 'substitution-row items-center';
+
+                row.innerHTML = `
+                    <input type="checkbox" id="${tagId}-check" checked class="mr-2">
+                    <code class="font-mono bg-gray-200 px-1 rounded-md text-sm">${tag === '\\n' ? '\\n (newline)' : tag.replace(/</g, '&lt;')}</code>
+                    <select id="${tagId}-select" class="mx-2 border border-gray-300 rounded-md p-1">
+                        <option value="highlight">Highlight</option>
+                        <option value="render">Render as formatting</option>
+                        <option value="placeholder">Placeholder</option>
+                    </select>
+                    <input type="text" id="${tagId}-input" class="dropdown-input hidden" placeholder="Replacement text...">
+                `;
+
+                contentDiv.appendChild(row);
+
+                const select = document.getElementById(`${tagId}-select`);
+                const input = document.getElementById(`${tagId}-input`);
+
+                select.addEventListener('change', () => {
+                    if (select.value === 'placeholder') {
+                        input.classList.remove('hidden');
+                    } else {
+                        input.classList.add('hidden');
+                    }
+                    renderTagsAndPlaceholders();
+                });
+
+                document.getElementById(`${tagId}-check`).addEventListener('change', renderTagsAndPlaceholders);
+                input.addEventListener('input', renderTagsAndPlaceholders);
+            });
+        }
+
+        function renderTagsAndPlaceholders() {
+            if (!isTagsPhsModeActive) return;
+
+            let renderedText = originalTextForTagsPhs;
+            const tags = detectTags(originalTextForTagsPhs);
+
+            tags.forEach((tag, index) => {
+                const tagId = `tag-${index}`;
+                const checkbox = document.getElementById(`${tagId}-check`);
+                if (!checkbox || !checkbox.checked) return;
+
+                const select = document.getElementById(`${tagId}-select`);
+                const option = select.value;
+                const replacementInput = document.getElementById(`${tagId}-input`);
+
+                let replacement = '';
+                switch (option) {
+                    case 'highlight':
+                        replacement = `<span class="tag-highlight">${tag.replace(/</g, '&lt;')}</span>`;
+                        break;
+                    case 'render':
+                        replacement = tag === '\\n' ? '<br>' : tag;
+                        break;
+                    case 'placeholder':
+                        const placeholderText = replacementInput.value || tag;
+                        replacement = `<span class="placeholder-highlight">${placeholderText.replace(/</g, '&lt;')}</span>`;
+                        break;
+                }
+
+
+                const tagRegex = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                renderedText = renderedText.replace(tagRegex, replacement);
+            });
+
+            activeInput.innerHTML = renderedText.replace(/\n/g, '<br>');
         }
 
         function setDirection(dir) {
