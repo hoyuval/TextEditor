@@ -3,917 +3,1759 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RTL Text Editor</title>
-    <!-- Tailwind CSS CDN for styling -->
+    <title>BiDi & Control Character Sandbox Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Diff Match Patch Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
-    <!-- Google Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <!-- Cousine Font -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cousine:wght@400;500;600;700&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --font-mono: 'Cousine', monospace;
-        }
-        /* Reset and Full Height Layout */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: var(--font-sans);
-            background-color: #ffffff;
-            color: #1f2937;
-        }
-
-        /* Material Icons sizing adjustments */
-        .material-symbols-outlined {
-            font-size: 1.25rem; /* 20px */
-            line-height: 1;
-        }
-
-        /* Main Flex Container */
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-            padding: 1rem;
-            box-sizing: border-box;
-        }
-
-        /* Header Section */
-        .app-header {
-            flex-shrink: 0;
-            margin-bottom: 1rem;
-        }
-        h1 {
-            font-size: 1.875rem;
-            font-weight: 700;
-            text-align: center;
-            margin: 0 0 1rem 0;
-        }
-
-        /* Editor Section */
-        .app-editor-area {
-            flex-grow: 1;
-            min-height: 200px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 1rem;
-        }
-
-        /* Footer Section */
-        .app-footer {
-            flex-shrink: 0;
-            max-height: 40vh;
-            overflow-y: auto;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 1rem;
-        }
-
-        /* Editor Grid Layout */
-        .editor-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-            height: 100%;
-            width: 100%;
-        }
-        .editor-grid.comparison-active {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        /* Column Layout for Label + Editor */
-        .editor-col {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-        .editor-label {
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: #4b5563;
-            margin-bottom: 0.25rem;
-            padding-left: 0.25rem;
-        }
-
-        .editor-wrapper {
-            position: relative;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-        }
-
-        /* Text Input Styling */
-        .text-input {
-            flex-grow: 1;
-            width: 100%;
-            height: 100%;
-            padding: 0.75rem;
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            line-height: 2;
-            overflow-y: auto;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-            outline: none;
-            background-color: #fff;
-            box-sizing: border-box;
-        }
-
-        /* Visualization Overlay */
-        .visualization-overlay {
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            pointer-events: none;
-            overflow: hidden;
-            z-index: 5;
-        }
-
-        .overlay-marker {
-            position: absolute;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            font-weight: bold;
-            color: #3b82f6;
-            font-family: var(--font-mono);
-        }
-        .overlay-marker.highlight-match {
-            background-color: rgba(255, 255, 0, 0.4);
-            border-bottom: 2px solid #eab308;
-            z-index: -1; 
-        }
-        .overlay-marker.break { transform: translateY(-50%); }
-        .overlay-marker.space, .overlay-marker.tab, .overlay-marker.special { transform: translate(-50%, -50%); }
-        .overlay-marker.space { font-size: 1rem; }
-
-        /* UI Controls Styling */
-        .control-row {
-            display: flex;
-            justify-content: flex-start; /* Aligned to Left */
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .control-btn, .action-btn, .secondary-btn {
-            padding: 0.5rem;
-            cursor: pointer;
-            font-weight: 500;
-            border-radius: 0.5rem;
-            transition: all 0.2s;
-            height: 2.5rem;
-            min-width: 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
-        }
-        .control-btn {
-            background-color: #ffffff;
-            color: #4b5563;
-            border: 1px solid #d1d5db;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-        }
-        .control-btn:hover { background-color: #e5e7eb; border-color: #9ca3af; }
-        .control-btn:active { background-color: #f3f4f6; transform: translateY(1px); }
-        .control-btn.is-active-btn { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+        :root { --font-sans: 'Google Sans', 'Product Sans', 'Noto Sans', system-ui, sans-serif; --btn-blue: #6d9eeb; --text-size: 1rem; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: var(--font-sans); background-color: #ffffff; color: #1f2937; transition: background-color 0.3s, color 0.3s; }
+        .material-symbols-outlined { font-size: 1.25rem; line-height: 1; }
+        .app-container { display: flex; flex-direction: column; height: 100%; width: 100%; padding: 1rem; box-sizing: border-box; }
+        .app-header { flex-shrink: 0; margin-bottom: 1rem; }
+        .app-editor-area { flex-grow: 1; min-height: 200px; overflow: hidden; display: flex; flex-direction: column; margin-bottom: 1rem; }
+        .app-footer { flex-shrink: 0; height: 30vh; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 1rem; padding-bottom: 2rem; transition: border-color 0.3s; }
+        .editor-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; height: 100%; width: 100%; }
+        .editor-grid.comparison-active { grid-template-columns: 1fr 1fr; }
+        .editor-col { display: flex; flex-direction: column; height: 100%; overflow: hidden; min-height: 0; }
+        .editor-label { font-size: 0.875rem; font-weight: 700; color: #4b5563; margin-bottom: 0.25rem; }
+        .editor-wrapper { flex-grow: 1; display: flex; flex-direction: column; border: 1px solid #d1d5db; border-radius: 0.5rem; background-color: #fff; position: relative; transition: background-color 0.3s, border-color 0.3s; overflow: hidden; min-height: 0; }
         
-        .action-btn { background-color: #4f46e5; color: white; border: none; padding: 0.5rem 1rem;}
-        .action-btn:hover { background-color: #4338ca; }
-        .secondary-btn { background-color: #6b7280; color: white; border: none; padding: 0.5rem 1rem;}
-        .secondary-btn:hover { background-color: #4b5563; }
+        .text-input { flex-grow: 1; width: 100%; padding: 1rem; font-family: var(--font-sans); font-size: var(--text-size); line-height: 1.6; letter-spacing: normal; word-spacing: 0.15em; overflow-y: auto; white-space: pre-wrap; outline: none; box-sizing: border-box; caret-color: #1f2937; tab-size: 4; position: relative; min-height: 0; }
+        .text-input.is-empty::before { content: attr(data-placeholder); color: #9ca3af; position: absolute; pointer-events: none; font-family: var(--font-sans); }
+        .text-input[dir="rtl"] { text-align: right; }
+        .editor-block { position: relative; min-height: 1.5em; }
 
-        /* Toggle Containers */
-        .toggle-container {
-            display: flex;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            padding: 0.125rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            height: 2.5rem;
-            background-color: #ffffff;
-            align-items: center;
-        }
-        .toggle-container > .control-btn { 
-            border: none; 
-            box-shadow: none; 
-            background: transparent; 
-            height: 100%;
-            border-radius: 0.375rem;
-            padding: 0 0.75rem;
-        }
-        .toggle-container > .control-btn:hover { background-color: #e5e7eb; }
-        .toggle-container > .control-btn.is-active-btn { background-color: #4f46e5; color: white; }
+        .vis-pilcrow { position: relative; color: var(--btn-blue) !important; opacity: 1 !important; margin-inline-start: 0.05em; pointer-events: none; user-select: none; font-weight: 700 !important; font-family: var(--font-sans) !important; z-index: 1; }
+        .text-input.show-vis .vis-char, .text-input.show-vis .vis-ctrl { color: transparent !important; caret-color: #1f2937 !important; position: relative; white-space: pre-wrap !important; z-index: 1; }
+        .text-input.show-vis .vis-char.space::before { content: '·'; color: var(--btn-blue); position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; user-select: none; font-weight: 700; z-index: 10; }
+        .text-input.show-vis .vis-char.nbsp::before { content: '∘'; color: var(--btn-blue); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 1.4em; pointer-events: none; user-select: none; font-weight: 700; z-index: 10; }
+        .text-input.show-vis .vis-char.tab::before { content: '→'; color: var(--btn-blue); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; user-select: none; font-weight: 700; z-index: 10; }
+        
+        .text-input.show-vis .vis-ctrl { padding-inline-start: 1.2em; unicode-bidi: normal; }
+        .text-input.show-vis .vis-ctrl::before { content: attr(data-label); position: absolute; left: 50%; top: 50%; color: var(--btn-blue); font-size: 0.55em; font-family: var(--font-sans); pointer-events: none; user-select: none; letter-spacing: normal; transform: translate(-50%, -50%) rotate(-45deg); z-index: 10; font-weight: 700; text-decoration: none; }
 
-        /* Dropdowns */
+
+        /* ================================================================================= */
+        /* THE FIXED SELECTION RIBBON ENGINE                                                 */
+        /* ================================================================================= */
+
+        /* 1. Global Native Selection (Text & Spaces) */
+        .text-input:focus *::selection { background-color: #add6ff !important; color: #000 !important; }
+        .text-input:not(:focus) *::selection { background-color: #e5e7eb !important; color: inherit !important; }
+        
+        /* 2. Hide Native Text inside Spaces when selected */
+        .text-input.show-vis .vis-char::selection { background-color: #add6ff !important; color: transparent !important; }
+        .text-input:not(:focus).show-vis .vis-char::selection { background-color: #e5e7eb !important; color: transparent !important; }
+        
+        /* 3. Disable Native Selection on Custom Objects (Prevents Dark Border Overlaps) */
+        .app-tag::selection, .app-tag-ph::selection, .app-tag-custom::selection, .vis-ctrl::selection, .vis-pilcrow::selection,
+        .app-tag *::selection, .app-tag-ph *::selection, .app-tag-custom *::selection, .vis-ctrl *::selection, .vis-pilcrow *::selection { background-color: transparent !important; color: inherit !important; }
+
+        /* 4. The Master Overlay Ribbon (1.35rem fixed height, mathematically independent) */
+        .app-tag.is-selected::after, .app-tag-ph.is-selected::after, .app-tag-custom.is-selected::after, .vis-ctrl.is-selected::after, .vis-pilcrow.is-selected::after {
+            content: ''; position: absolute; left: -1px; right: -1px; 
+            top: 50%; height: 1.35rem; transform: translateY(-50%);
+            z-index: -2; pointer-events: none; border-radius: 0 !important;
+        }
+
+        /* Focus & Unfocus Ribbon Colors */
+        .text-input:focus .app-tag.is-selected::after, .text-input:focus .app-tag-ph.is-selected::after, .text-input:focus .app-tag-custom.is-selected::after, .text-input:focus .vis-ctrl.is-selected::after, .text-input:focus .vis-pilcrow.is-selected::after {
+            background-color: #add6ff !important;
+        }
+        .text-input:not(:focus) .app-tag.is-selected::after, .text-input:not(:focus) .app-tag-ph.is-selected::after, .text-input:not(:focus) .app-tag-custom.is-selected::after, .text-input:not(:focus) .vis-ctrl.is-selected::after, .text-input:not(:focus) .vis-pilcrow.is-selected::after {
+            background-color: #e5e7eb !important;
+        }
+
+        /* 5. High-Contrast Icon Inversion (Black on Focus, Dark Gray on Blur) */
+        .text-input:focus .is-selected.vis-char::before, .text-input:focus .is-selected.vis-ctrl::before, .text-input:focus .is-selected.vis-pilcrow { color: #000000 !important; }
+        .text-input:not(:focus) .is-selected.vis-char::before, .text-input:not(:focus) .is-selected.vis-ctrl::before, .text-input:not(:focus) .is-selected.vis-pilcrow { color: #4b5563 !important; }
+
+
+        /* ================================================================================= */
+
+        .text-input.show-vis .bg-red-200.vis-ctrl { background-image: linear-gradient(transparent 45%, #b91c1c 45%, #b91c1c 55%, transparent 55%) !important; text-decoration: none !important; }
+        .text-input.show-vis .bg-red-200.vis-ctrl::before { color: #b91c1c !important; text-decoration: none !important; }
+
+        /* Tags Base Wrapper */
+        .app-tag { display: inline-block; cursor: default; white-space: pre !important; vertical-align: baseline; margin: 0 1px; color: #4b5563; font-family: monospace; font-size: 0.75rem; font-weight: 600; padding: 2px 4px; -webkit-user-select: none; user-select: none; position: relative; z-index: 1; background-color: transparent !important; }
+        .app-tag-custom { display: inline; cursor: default; -webkit-user-select: none; user-select: none; position: relative; z-index: 1; background-color: transparent !important; }
+        .app-tag-ph { display: inline-block; cursor: default; white-space: pre !important; color: #166534; font-family: inherit; font-size: inherit; font-weight: inherit; padding: 2px 6px; margin: 0 1px; -webkit-user-select: none; user-select: none; position: relative; z-index: 1; background-color: transparent !important; }
+        
+        /* The Grey Shapes (Rendered via ::before so ribbon ::after can underlay them safely) */
+        .app-tag::before { content: ''; position: absolute; inset: 0; background-color: #e5e7eb; border-radius: 4px; z-index: -1; }
+        .app-tag-ph::before { content: ''; position: absolute; inset: 0; background-color: #dcfce7; border-radius: 4px; z-index: -1; }
+        .app-tag.tag-standalone::before { border-radius: 6px; }
+
+        /* Ghost Tags when Highlighted (Shows the Ribbon underneath) */
+        .text-input:focus .app-tag.is-selected::before { background-color: rgba(255, 255, 255, 0.4) !important; }
+        .text-input:not(:focus) .app-tag.is-selected::before { background-color: rgba(255, 255, 255, 0.6) !important; }
+        .text-input:focus .app-tag-ph.is-selected::before { background-color: rgba(255, 255, 255, 0.4) !important; }
+        .text-input:not(:focus) .app-tag-ph.is-selected::before { background-color: rgba(255, 255, 255, 0.6) !important; }
+
+        /* Formatting */
+        .format-wrapper-active { display: inline; }
+        .app-tag-hidden { display: none !important; }
+        
+        .text-theme-blue { color: var(--btn-blue) !important; }
+        .hover-theme-blue:hover { color: var(--btn-blue) !important; filter: brightness(0.8); }
+        .selectable-input { -webkit-user-select: text !important; user-select: text !important; cursor: text !important; pointer-events: auto !important; }
+
+        /* Arrow Shapes for Tag Pairs */
+        .app-tag.tag-opener { padding-right: 12px; padding-left: 6px; }
+        .app-tag.tag-opener::before { clip-path: polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%); border-radius: 4px 0 0 4px; }
+        .app-tag.tag-closer { padding-left: 12px; padding-right: 6px; }
+        .app-tag.tag-closer::before { clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%); border-radius: 0 4px 4px 0; }
+        
+        .text-input:dir(rtl) .app-tag.tag-opener::before { clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%); border-radius: 0 4px 4px 0; }
+        .text-input:dir(rtl) .app-tag.tag-closer::before { clip-path: polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%); border-radius: 4px 0 0 4px; }
+
+        /* Diff Mode Integration */
+        .diff-del-text { background-color: #fecaca; color: #991b1b; text-decoration: line-through; text-decoration-color: #ef4444; }
+        .diff-del-text .app-tag::before, .diff-del-text .app-tag-ph::before { background-color: #fca5a5 !important; border: 1px solid #ef4444 !important; }
+        .diff-del-text .app-tag { color: #991b1b !important; text-decoration: line-through !important; text-decoration-color: #ef4444 !important; }
+        .diff-del-text .vis-char::before { color: #991b1b !important; text-decoration: line-through !important; text-decoration-color: #ef4444 !important; }
+        .diff-del-text .vis-ctrl { background-image: linear-gradient(transparent 45%, #ef4444 45%, #ef4444 55%, transparent 55%) !important; text-decoration: none !important; }
+        .diff-del-text .vis-ctrl::before { color: #991b1b !important; text-decoration: none !important; }
+        
+        .diff-add-text { background-color: #bbf7d0; border-bottom: 2px solid #16a34a; color: #14532d; }
+        .diff-add-text .app-tag::before, .diff-add-text .app-tag-ph::before { background-color: #86efac !important; border: 1px solid #22c55e !important; }
+        .diff-add-text .app-tag { color: #14532d !important; }
+
+        /* UI Toolbar */
+        .control-row { display: flex; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap; align-items: center; user-select: none; }
+        .control-btn { padding: 0; cursor: pointer; border-radius: 0.5rem; transition: all 0.2s; height: 2.5rem; width: 2.5rem; display: flex; align-items: center; justify-content: center; background-color: #ffffff; color: #4b5563; border: 1px solid #d1d5db; flex-shrink: 0; }
+        .control-btn:hover { background-color: #e5e7eb; }
+        .control-btn.is-active-btn { background-color: var(--btn-blue); color: white; border-color: var(--btn-blue); }
+        .toggle-container { display: flex; border: 1px solid #d1d5db; border-radius: 0.5rem; overflow: hidden; padding: 0.125rem; height: 2.5rem; background-color: #ffffff; align-items: center; transition: background-color 0.3s, border-color 0.3s; flex-shrink: 0; }
+        .toggle-container > .control-btn { border: none; height: 100%; border-radius: 0.375rem; padding: 0 0.5rem; width: auto; min-width: 2.25rem; }
+        
         .dropdown-wrapper { position: relative; height: 2.5rem; display: flex; align-items: center; }
-        .dropdown-wrapper .control-btn { height: 100%; }
-        .dropdown-menu {
-            position: absolute;
-            z-index: 50;
-            background-color: white;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-top: 0.25rem;
-            top: 100%;
-            left: 0;
-        }
-        #insertDropdownMenu { width: max-content; max-height: 300px; overflow-y: auto; }
-        #substitutionsDropdownMenu { width: 350px; padding: 0.75rem; max-height: 400px; overflow-y: auto; }
-        .dropdown-menu button {
-            display: block; width: 100%; text-align: left; padding: 0.5rem 1rem;
-            background-color: transparent; border: none; cursor: pointer;
-        }
+        .dropdown-menu { position: absolute; z-index: 50; background-color: white; border: 1px solid #d1d5db; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-top: 0.25rem; top: 100%; left: 0; width: max-content; transition: background-color 0.3s, border-color 0.3s; }
+        .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 0.5rem 1rem; background: transparent; cursor: pointer; border:none; color: inherit; }
         .dropdown-menu button:hover { background-color: #f3f4f6; }
-        .dropdown-input { border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
-        .substitution-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
 
-        /* Find Bar */
-        .find-bar {
-            background-color: #f9fafb;
-            border: 1px solid #d1d5db;
-            border-radius: 0.75rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .find-row-inputs {
-            display: flex;
-            gap: 1rem;
-            width: 100%;
-        }
-        .find-row-controls {
-            display: flex;
-            gap: 1rem;
-            width: 100%;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .find-input {
-            padding: 0.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.5rem;
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            flex: 1;
-        }
-        #matchCounter {
-            font-size: 0.9rem;
-            color: #6b7280;
-            white-space: nowrap;
-            min-width: 100px;
-            font-weight: 500;
-        }
-
-        /* Stats */
-        #statsBar {
-            font-family: var(--font-mono); font-size: 0.875rem; color: #6b7280;
-            display: flex; gap: 2rem; margin-bottom: 1rem;
-        }
-        .stat-value { font-weight: 600; color: #374151; }
-
-        /* Legend */
-        .legend-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 1rem;}
-        .legend-table th, .legend-table td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; }
-        .legend-table th { background-color: #f9fafb; font-weight: 600; text-align: left; }
-
-        /* Diff Colors */
-        .diff-del { background-color: #fecaca; text-decoration: line-through; color: #991b1b; }
-        .diff-ins { background-color: #bbf7d0; color: #166534; }
+        .stats-container { font-size: 0.85rem; color: #4b5563; margin-bottom: 1rem; }
+        .stat-group { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: background-color 0.3s, border-color 0.3s; }
+        .stat-item { display: flex; gap: 0.5rem; }
+        .stat-value { font-weight: 700; color: #111827; }
         
+        .tools-section { background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; transition: background-color 0.3s, border-color 0.3s; }
+        .section-title { font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .legend-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; background: white; transition: background-color 0.3s; }
+        .legend-table th, .legend-table td { padding: 0.5rem; border: 1px solid #e5e7eb; transition: border-color 0.3s; }
+        .legend-table th { background-color: #f9fafb; text-align: left; font-weight: 700; transition: background-color 0.3s; }
+        .legend-stamp, .vis-legend-icon { color: var(--btn-blue) !important; font-weight: 700 !important; font-family: var(--font-sans) !important; }
+        .legend-stamp { display: inline-block; transform: rotate(-45deg); font-size: 0.65rem; }
+        .vis-legend-icon { display: inline-block; }
         .hidden { display: none !important; }
-        
-        #messageDisplay {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            padding: 10px 20px; border-radius: 5px; color: white; z-index: 1000;
-            opacity: 0; transition: opacity 0.5s; pointer-events: none; font-size: 1rem;
-        }
+        #customModal { backdrop-filter: blur(2px); }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
-        <div class="app-header">
-            
-            
-            <div class="control-row">
-                <!-- Direction -->
-                <div class="toggle-container">
-                    <button id="btn-ltr" class="control-btn" onclick="setDirection('ltr')" title="LTR"><span class="material-symbols-outlined">format_textdirection_l_to_r</span></button>
-                    <button id="btn-auto" class="control-btn" onclick="setDirection('auto')" title="Auto"><span class="material-symbols-outlined">hdr_auto</span></button>
-                    <button id="btn-rtl" class="control-btn" onclick="setDirection('rtl')" title="RTL"><span class="material-symbols-outlined">format_textdirection_r_to_l</span></button>
-                </div>
-
-                <!-- Visualization Toggle -->
-                <div class="toggle-container">
-                    <button id="vizToggleButton" onclick="toggleVisualizationMode()" class="control-btn" title="Show Visualization">
-                        <span class="material-symbols-outlined">visibility</span>
-                    </button>
-                </div>
-
-                <!-- Undo/Redo -->
-                <div class="toggle-container">
-                    <button class="control-btn" onclick="document.execCommand('undo')" title="Undo"><span class="material-symbols-outlined">undo</span></button>
-                    <button class="control-btn" onclick="document.execCommand('redo')" title="Redo"><span class="material-symbols-outlined">redo</span></button>
-                </div>
-
-                <!-- Comparison Mode -->
-                <div class="toggle-container">
-                    <button id="comparisonBtn" onclick="toggleComparisonMode()" class="control-btn" title="Comparison Mode">
-                        <span class="material-symbols-outlined">view_column_2</span>
-                    </button>
-                </div>
-
-                <!-- Menus -->
-                <div class="dropdown-wrapper">
-                    <button id="insertDropdownBtn" class="control-btn" title="Insert Character"><span class="material-symbols-outlined">add</span></button>
-                    <div id="insertDropdownMenu" class="dropdown-menu hidden">
-                        <button onclick="insertControlChar('\u200F')">RLM – Right-to-Left Mark – ⎤</button>
-                        <button onclick="insertControlChar('\u200E')">LRM – Left-to-Right Mark – ⎣</button>
-                        <button onclick="insertControlChar('\u202B')">RLE – Right-to-Left Embedding – ⧼</button>
-                        <button onclick="insertControlChar('\u202A')">LRE – Left-to-Right Embedding – ⧽</button>
-                        <button onclick="insertControlChar('\u00A0')">NBSP – Non-breaking Space – ◦</button>
-                        <button onclick="insertControlChar('\u2011')">NBH – Non-breaking Hyphen – ⸫</button>
-                        <button onclick="insertControlChar('\t')">Tab – Tabulation – ↹</button>
-                        <button onclick="insertControlChar('\u2013')">Dash – En Dash – –</button>
-                        <button onclick="insertControlChar('\u2026')">Ellipsis – Horizontal Ellipsis – …</button>
-                    </div>
-                </div>
-
-                <div class="dropdown-wrapper">
-                    <button id="substitutionsDropdownBtn" class="control-btn">Substitutions</button>
-                    <div id="substitutionsDropdownMenu" class="dropdown-menu hidden">
-                        <div class="space-y-2">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-0"><label for="sub-check-0"><code>\n</code> & <code>&lt;br&gt;</code> as line break</label></div>
-                            <hr style="width:100%; border-color:#e5e7eb; margin: 0.5rem 0;">
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-1"><input type="text" id="sub-from-1" class="dropdown-input"><span>→</span><input type="text" id="sub-to-1" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-2"><input type="text" id="sub-from-2" class="dropdown-input"><span>→</span><input type="text" id="sub-to-2" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-3"><input type="text" id="sub-from-3" class="dropdown-input"><span>→</span><input type="text" id="sub-to-3" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-4"><input type="text" id="sub-from-4" class="dropdown-input"><span>→</span><input type="text" id="sub-to-4" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-5"><input type="text" id="sub-from-5" class="dropdown-input"><span>→</span><input type="text" id="sub-to-5" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-6"><input type="text" id="sub-from-6" class="dropdown-input"><span>→</span><input type="text" id="sub-to-6" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-7"><input type="text" id="sub-from-7" class="dropdown-input"><span>→</span><input type="text" id="sub-to-7" class="dropdown-input"></div>
-                            <div class="substitution-row"><input type="checkbox" id="sub-check-8"><input type="text" id="sub-from-8" class="dropdown-input"><span>→</span><input type="text" id="sub-to-8" class="dropdown-input"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Diff Toggle (At the end) -->
-                <div class="toggle-container hidden" id="diffToggleContainer">
-                    <button id="diffToggleButton" onclick="toggleDiffMode()" class="control-btn" title="Show Diffs">
-                        <span class="material-symbols-outlined">text_compare</span>
-                    </button>
-                </div>
+    <div id="customModal" class="fixed inset-0 bg-black bg-opacity-40 hidden z-[100] flex items-center justify-center transition-opacity duration-200">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4 border border-gray-200 transform scale-95 transition-transform duration-200" id="customModalInner">
+            <div class="flex items-center gap-3 mb-3 text-yellow-600">
+                <span class="material-symbols-outlined text-2xl">warning</span><h3 class="text-lg font-bold text-gray-900">Mode Conflict</h3>
             </div>
-        </div>
-
-        <!-- Main Editor Area -->
-        <div class="app-editor-area">
-            <div id="editorGrid" class="editor-grid">
-                <!-- Left Editor -->
-                <div class="editor-col">
-                    <div class="editor-label hidden" id="labelLeft">Original</div>
-                    <div class="editor-wrapper">
-                        <div id="textInput" class="text-input" contenteditable="true" spellcheck="false">Type or paste your text here...</div>
-                        <div id="visualizationOverlay" class="visualization-overlay"></div>
-                    </div>
-                </div>
-                
-                <!-- Right Editor -->
-                <div class="editor-col hidden" id="rightCol">
-                    <div class="editor-label" id="labelRight">Modified</div>
-                    <div class="editor-wrapper">
-                        <div id="textInput2" class="text-input" contenteditable="true" spellcheck="false"></div>
-                        <div id="visualizationOverlay2" class="visualization-overlay"></div>
-                    </div>
-                </div>
+            <p id="modalMessage" class="text-gray-600 mb-6 leading-relaxed"></p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100 transition border border-transparent">Cancel</button>
+                <button id="modalConfirm" class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 transition shadow-sm">Confirm</button>
             </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="app-footer">
-            <div id="statsBar">
-                <div class="stat-item">Character count: <span id="charCount" class="stat-value">0</span></div>
-                <div class="stat-item">Excluding control characters: <span id="charCountNoControl" class="stat-value">0</span></div>
-                <div class="stat-item">Word count: <span id="wordCount" class="stat-value">0</span></div>
-            </div>
-
-            <div class="find-bar">
-                <div class="find-row-inputs">
-                    <input type="text" id="findInput" placeholder="Find text..." class="find-input" oninput="updateMatchCount()">
-                    <input type="text" id="replaceInput" placeholder="Replace with..." class="find-input">
-                </div>
-                <div class="find-row-controls">
-                    <label style="font-size: 0.9rem; display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="regexToggle" onchange="updateMatchCount()" style="margin-right: 6px; width: 1rem; height: 1rem;"> 
-                        Regex
-                    </label>
-                    <span id="matchCounter">0 matches</span>
-                    <div style="flex-grow: 1;"></div> 
-                    <button class="action-btn" onclick="findNext()">Find Next</button>
-                    <button class="action-btn" onclick="highlightMatches()">Highlight Matches</button>
-                    <button class="action-btn" onclick="replaceNext()">Replace Next</button>
-                    <button class="action-btn" onclick="replaceAll()">Replace All</button>
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 1rem;">
-                <button class="action-btn" onclick="copyText()">Copy Text</button>
-                <button class="secondary-btn" onclick="saveText()">Save File</button>
-                <button class="secondary-btn" onclick="openFile()">Open File</button>
-                <input type="file" id="fileInput" class="hidden" accept=".txt, .text, text/plain">
-            </div>
-
-            <table class="legend-table">
-                <thead><tr><th>Name</th><th>Abbreviation</th><th>Visualization</th></tr></thead>
-                <tbody>
-                    <tr><td>Standard Space</td><td>Space</td><td><span style="color:#3b82f6; font-weight:bold;">·</span></td></tr>
-                    <tr><td>Right-to-Left Mark</td><td>RLM</td><td><span style="color:#3b82f6; font-weight:bold;">⎤</span></td></tr>
-                    <tr><td>Left-to-Right Mark</td><td>LRM</td><td><span style="color:#3b82f6; font-weight:bold;">⎣</span></td></tr>
-                    <tr><td>Right-to-Left Embedding</td><td>RLE</td><td><span style="color:#3b82f6; font-weight:bold;">⧼</span></td></tr>
-                    <tr><td>Left-to-Right Embedding</td><td>LRE</td><td><span style="color:#3b82f6; font-weight:bold;">⧽</span></td></tr>
-                    <tr><td>Non-breaking Space</td><td>NBSP</td><td><span style="color:#3b82f6; font-weight:bold;">◦</span></td></tr>
-                    <tr><td>Tab</td><td>Tab</td><td><span style="color:#3b82f6; font-weight:bold;">↹</span></td></tr>
-                    <tr><td>Line Break</td><td>LB</td><td><span style="color:#3b82f6; font-weight:bold;">¶</span></td></tr>
-                </tbody>
-            </table>
         </div>
     </div>
-    
-    <div id="messageDisplay"></div>
+
+    <div class="app-container">
+        <div class="app-header">
+            <div class="control-row">
+                <div class="toggle-container">
+                    <button id="btn-ltr" class="control-btn" onmousedown="event.preventDefault()" onclick="setDirection('ltr')" title="LTR"><span class="material-symbols-outlined">format_textdirection_l_to_r</span></button>
+                    <button id="btn-auto" class="control-btn" onmousedown="event.preventDefault()" onclick="setDirection('auto')" title="Auto (Per Paragraph)"><span class="material-symbols-outlined">hdr_auto</span></button>
+                    <button id="btn-rtl" class="control-btn" onmousedown="event.preventDefault()" onclick="setDirection('rtl')" title="RTL"><span class="material-symbols-outlined">format_textdirection_r_to_l</span></button>
+                </div>
+                <button id="vizToggleButton" class="control-btn" onmousedown="event.preventDefault()" onclick="toggleVisualizationMode()" title="Toggle Visualization"><span class="material-symbols-outlined">visibility</span></button>
+                <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                <button id="tagsModeBtn" class="control-btn" onmousedown="event.preventDefault()" onclick="toggleTagsMode()" title="Tags and Placeholders Mode"><span class="material-symbols-outlined">frame_source</span></button>
+                <button id="tagsScanBtn" class="control-btn hidden" onmousedown="event.preventDefault()" onclick="scanForTags()" title="Re-scan for tags and placeholders"><span class="material-symbols-outlined">frame_reload</span></button>
+                <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                <button id="comparisonBtn" class="control-btn" onmousedown="event.preventDefault()" onclick="toggleComparisonMode()" title="Comparison Mode"><span class="material-symbols-outlined">view_column_2</span></button>
+                <button id="diffToggleButton" class="control-btn hidden" onmousedown="event.preventDefault()" onclick="toggleDiffMode()" title="Show Diffs"><span class="material-symbols-outlined">text_compare</span></button>
+                <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                <button id="segmentationBtn" class="control-btn" onmousedown="event.preventDefault()" onclick="toggleSegmentationMode()" title="Segmentation Mode"><span class="material-symbols-outlined">table_rows</span></button>
+                
+                <div id="segmentationToolbar" class="flex gap-2 hidden">
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="splitActiveSegment()" title="Split Segment at Cursor"><span class="material-symbols-outlined text-[1.1rem]">split_scene_2</span></button>
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="mergeActiveSegment()" title="Merge Segment with Next"><span class="material-symbols-outlined text-[1.1rem] block rotate-90">combine_columns</span></button>
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="alphabetizeSegments()" title="Alphabetize Segment Order"><span class="material-symbols-outlined text-[1.1rem]">list_arrow</span></button>
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="removeDuplicateSegments()" title="Remove Duplicates"><span class="material-symbols-outlined text-[1.1rem]">tab_close</span></button>
+                </div>
+                <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                <button class="control-btn" onmousedown="event.preventDefault()" onclick="customUndo()" title="Undo"><span class="material-symbols-outlined">undo</span></button>
+                <button class="control-btn" onmousedown="event.preventDefault()" onclick="customRedo()" title="Redo"><span class="material-symbols-outlined">redo</span></button>
+                <div class="w-px h-6 bg-gray-300 mx-2"></div>
+                
+                <div class="dropdown-wrapper">
+                    <button id="insertDropdownBtn" class="control-btn relative" onmousedown="event.preventDefault()" onclick="toggleDropdown('insertDropdownMenu')" title="Insert Character">
+                        <span class="material-symbols-outlined">add</span><span class="material-symbols-outlined absolute bottom-0 left-1/2 transform -translate-x-1/2 text-[10px] opacity-70 pointer-events-none">expand_more</span>
+                    </button>
+                    <div id="insertDropdownMenu" class="dropdown-menu hidden">
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\u200F')" class="flex items-center gap-3"><span class="legend-stamp w-6 text-center">RLM</span> <span class="text-sm text-gray-700">RLM</span></button>
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\u200E')" class="flex items-center gap-3"><span class="legend-stamp w-6 text-center">LRM</span> <span class="text-sm text-gray-700">LRM</span></button>
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\u202B')" class="flex items-center gap-3"><span class="legend-stamp w-6 text-center">RLE</span> <span class="text-sm text-gray-700">RLE</span></button>
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\u202A')" class="flex items-center gap-3"><span class="legend-stamp w-6 text-center">LRE</span> <span class="text-sm text-gray-700">LRE</span></button>
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\u00A0')" class="flex items-center gap-3"><span class="vis-legend-icon text-lg w-6 text-center">∘</span> <span class="text-sm text-gray-700">NBSP</span></button>
+                        <button onmousedown="event.preventDefault()" onclick="insertChar('\t')" class="flex items-center gap-3"><span class="vis-legend-icon w-6 text-center">→</span> <span class="text-sm text-gray-700">Tab</span></button>
+                    </div>
+                </div>
+                <button id="alphabetizeBtn" class="control-btn" onmousedown="event.preventDefault()" onclick="handleAlphabetize()" title="Alphabetize Content"><span class="material-symbols-outlined">sort_by_alpha</span></button>
+                <div style="flex-grow: 1;"></div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="saveText()" title="Save File"><span class="material-symbols-outlined">save</span></button>
+                    <button class="control-btn" onmousedown="event.preventDefault()" onclick="openFile()" title="Open File"><span class="material-symbols-outlined">folder_open</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-editor-area relative">
+            <div id="editorGrid" class="editor-grid absolute inset-0">
+                <div class="editor-col">
+                    <div class="editor-label hidden" id="labelLeft">Original</div>
+                    <div class="editor-wrapper"><div id="textInput" class="text-input show-vis" contenteditable="true" spellcheck="false" dir="auto" data-placeholder="Type or paste your text here..."></div></div>
+                </div>
+                <div class="editor-col hidden" id="rightCol">
+                    <div class="editor-label" id="labelRight">Modified</div>
+                    <div class="editor-wrapper"><div id="textInput2" class="text-input show-vis" contenteditable="true" spellcheck="false" dir="auto" data-placeholder="Type or paste your text here..."></div></div>
+                </div>
+            </div>
+            <div id="segmentationGrid" class="hidden absolute inset-0 overflow-y-auto pb-8 pr-2 flex flex-col gap-3"></div>
+        </div>
+
+        <div class="app-footer">
+            <div id="statsBar" class="stats-container"></div>
+            <div class="tools-section">
+                <div class="section-title"><span class="material-symbols-outlined">search</span> Find and Replace</div>
+                <div class="flex gap-2 mb-2 items-center">
+                    <input type="text" id="findInput" class="flex-1 p-2 border rounded outline-none" placeholder="Find text..." oninput="handleSearchChange()" style="border-color: #d1d5db;">
+                    <input type="text" id="replaceInput" class="flex-1 p-2 border rounded outline-none" placeholder="Replace with..." style="border-color: #d1d5db;">
+                    <select id="frTarget" class="p-2 border rounded hidden text-sm bg-white outline-none" style="border-color: #d1d5db;">
+                        <option value="both">Both</option><option value="original">Original</option><option value="modified">Modified</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-1 text-sm cursor-pointer"><input type="checkbox" id="regexToggle" onchange="handleSearchChange()"> Regex</label>
+                    <label class="flex items-center gap-1 text-sm cursor-pointer"><input type="checkbox" id="highlightToggle" onchange="handleSearchChange()"> Highlight Matches</label>
+                    <span id="matchCounter" class="text-sm text-gray-500 min-w-[80px]">0 matches</span>
+                    <button onclick="findNext()" class="border px-3 py-1 rounded text-sm transition ml-auto" style="background-color: #f3f4f6; border-color: #d1d5db;">Find Next</button>
+                    <button onclick="replaceNext()" class="border px-3 py-1 rounded text-sm transition" style="background-color: #f3f4f6; border-color: #d1d5db;">Replace Next</button>
+                    <button onclick="replaceAll()" class="text-white px-3 py-1 rounded text-sm transition hover:opacity-90" style="background-color: var(--btn-blue);">Replace All</button>
+                </div>
+            </div>
+
+            <div id="tagsSection" class="tools-section hidden">
+                <div class="section-title"><span class="material-symbols-outlined">label</span> Tags and Placeholders</div>
+                <div id="tagsListContainer" class="flex flex-col gap-2 pr-2 mb-2">
+                    <div id="tagsList" class="flex flex-col gap-2"></div>
+                </div>
+                <div class="flex gap-2 border-t border-gray-200 pt-3 mt-2">
+                    <input type="text" id="manualTagInput" class="flex-1 p-2 border rounded outline-none text-sm" placeholder="Add manual tag...">
+                    <button onclick="addManualTag()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-gray-800 transition-colors font-semibold text-sm">Add</button>
+                </div>
+            </div>
+            
+            <div class="tools-section">
+                <div class="section-title"><span class="material-symbols-outlined">info</span> Legend</div>
+                <table class="legend-table">
+                    <thead><tr><th>Name</th><th>Symbol</th><th>Description</th><th>Shortcut</th></tr></thead>
+                    <tbody>
+                        <tr><td>Standard Space</td><td class="text-center"><span class="vis-legend-icon">·</span></td><td>Standard whitespace</td><td></td></tr>
+                        <tr><td>RLM</td><td class="text-center"><span class="legend-stamp">RLM</span></td><td>Right-to-Left Mark</td><td><kbd>Ctrl/⌘</kbd> + <kbd>]</kbd></td></tr>
+                        <tr><td>LRM</td><td class="text-center"><span class="legend-stamp">LRM</span></td><td>Left-to-Right Mark</td><td><kbd>Ctrl/⌘</kbd> + <kbd>[</kbd></td></tr>
+                        <tr><td>RLE</td><td class="text-center"><span class="legend-stamp">RLE</span></td><td>Right-to-Left Embedding</td><td><kbd>Ctrl/⌘</kbd> + <kbd>Shift</kbd> + <kbd>]</kbd></td></tr>
+                        <tr><td>LRE</td><td class="text-center"><span class="legend-stamp">LRE</span></td><td>Left-to-Right Embedding</td><td><kbd>Ctrl/⌘</kbd> + <kbd>Shift</kbd> + <kbd>[</kbd></td></tr>
+                        <tr><td>NBSP</td><td class="text-center text-xl leading-none"><span class="vis-legend-icon">∘</span></td><td>Non-breaking Space</td><td></td></tr>
+                        <tr><td>Tab</td><td class="text-center"><span class="vis-legend-icon">→</span></td><td>Tabulation character</td><td></td></tr>
+                        <tr><td>Line Break</td><td class="text-center"><span class="vis-legend-icon">¶</span></td><td>Literal line break</td><td><kbd>Enter</kbd></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="fileInput" class="hidden">
 
     <script>
-        // --- Elements ---
         const textInput = document.getElementById('textInput');
-        const overlay = document.getElementById('visualizationOverlay');
         const textInput2 = document.getElementById('textInput2');
-        const overlay2 = document.getElementById('visualizationOverlay2');
-        
         const editorGrid = document.getElementById('editorGrid');
+        const segmentationGrid = document.getElementById('segmentationGrid');
         const rightCol = document.getElementById('rightCol');
-        const comparisonBtn = document.getElementById('comparisonBtn');
-        const diffBtn = document.getElementById('diffToggleButton');
-        const diffToggleContainer = document.getElementById('diffToggleContainer');
-        const labelLeft = document.getElementById('labelLeft');
-        const matchCounter = document.getElementById('matchCounter');
+        const statsBar = document.getElementById('statsBar');
+        const frTarget = document.getElementById('frTarget');
+        const dmp = new diff_match_patch(); dmp.Diff_Timeout = 0;
 
-        // --- State ---
-        let isVisualizationActive = false;
-        let isComparisonMode = false;
-        let isDiffActive = false;
-        let activeInput = textInput; 
-        let diffDebounceTimer;
-        let lastSelectionRange = null; 
-        
-        // Define observers globally
-        let observer1, observer2;
-        const observerConfig = {childList: true, subtree: true, characterData: true};
-        
-        const dmp = new diff_match_patch();
+        let isVisualizationActive = true, isComparisonMode = false, isDiffActive = false;
+        let isSegmentationMode = false, isTagsMode = false, hasScannedTags = false;
+        let segmentationRule = 'paragraph';
+        let segments = [], tagRegistry = [];
+        let activeSegmentIndex = -1, currentDirectionMode = 'auto'; 
+        let activeInput = textInput, updateTimeout, forceFormat = false; 
 
-        const DISPLAY_SYMBOLS = {
-            ' ': '·', '\u200E': '⎣', '\u200F': '⎤', '\u202A': '⧽', '\u202B': '⧼',
-            '\u00A0': '◦', '\u2011': '⸫', '\n': '¶', '\t': '↹', '\u2013': '–', '\u2026': '…'
-        };
-        const SPECIAL_CHARS_SET = new Set(Object.keys(DISPLAY_SYMBOLS));
+        // --- Custom Undo Stack ---
+        let historyStack = [];
+        let historyIndex = -1;
+        let isNavigatingHistory = false;
+        let historyTimeout;
 
-        function updateLastSelection() {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                if ((textInput.contains(range.commonAncestorContainer)) || (textInput2.contains(range.commonAncestorContainer))) {
-                    lastSelectionRange = range.cloneRange();
-                }
-            }
-        }
-
-        // --- Visualization Logic ---
-        function createMarker(text, rect, editorRect, parentOverlay, className = '') {
-            const marker = document.createElement('div');
-            marker.textContent = text;
-            marker.className = `overlay-marker ${className}`;
+        function saveHistoryState() {
+            if (isNavigatingHistory) return;
+            const state = {
+                mode: isSegmentationMode ? 'segmentation' : (isComparisonMode ? 'comparison' : 'single'),
+                text1: getRawText(textInput),
+                text2: isComparisonMode ? getRawText(textInput2) : '',
+                segments: isSegmentationMode ? segments.map(s => ({text: s.text, trailingSpace: s.trailingSpace})) : []
+            };
             
-            const left = rect.left - editorRect.left;
-            const top = rect.top - editorRect.top;
-
-            if (className === 'highlight-match') {
-                 marker.style.width = `${rect.width}px`;
-                 marker.style.height = `${rect.height}px`;
-                 marker.style.left = `${left}px`;
-                 marker.style.top = `${top}px`;
-            } else if (className === 'break') {
-                marker.style.left = `${left}px`;
-                marker.style.top = `${top + (rect.height / 2)}px`;
-                marker.style.transform = 'translateY(-50%)';
-            } else {
-                marker.style.left = `${left + (rect.width / 2)}px`;
-                marker.style.top = `${top + (rect.height / 2)}px`;
-            }
-            parentOverlay.appendChild(marker);
-        }
-
-        function visualizeMatches(editorElement, overlayElement) {
-            const findValue = document.getElementById('findInput').value;
-            if (!findValue) return;
-
-            const isRegex = document.getElementById('regexToggle').checked;
-            let regex;
-            try {
-                regex = isRegex ? new RegExp(findValue, 'gi') : new RegExp(findValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            } catch(e) { return; }
-
-            const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT);
-            const range = document.createRange();
-            const editorRect = editorElement.getBoundingClientRect();
-
-            let node;
-            while(node = walker.nextNode()) {
-                let match;
-                while ((match = regex.exec(node.nodeValue)) !== null) {
-                    try {
-                        range.setStart(node, match.index);
-                        range.setEnd(node, match.index + match[0].length);
-                        const rects = range.getClientRects();
-                        for (let rect of rects) {
-                            createMarker('', rect, editorRect, overlayElement, 'highlight-match');
-                        }
-                    } catch(e) {}
-                }
-            }
-        }
-
-        function applyVisualizationsForEditor(editorElement, overlayElement) {
-            overlayElement.innerHTML = '';
-            overlayElement.scrollTop = editorElement.scrollTop;
-            overlayElement.scrollLeft = editorElement.scrollLeft;
-
-            visualizeMatches(editorElement, overlayElement);
-
-            if (!isVisualizationActive) return;
-
-            const range = document.createRange();
-            const editorRect = editorElement.getBoundingClientRect();
-            
-            const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT);
-            let node;
-            while(node = walker.nextNode()) {
-                const textContent = node.nodeValue;
-                for (let i = 0; i < textContent.length; i++) {
-                    const char = textContent[i];
-                    if (SPECIAL_CHARS_SET.has(char) && char !== '\n') {
-                        try {
-                            range.setStart(node, i);
-                            range.setEnd(node, i + 1);
-                            const rects = range.getClientRects();
-                            if (rects.length > 0) {
-                                let className = 'special';
-                                if (char === ' ') className = 'space';
-                                createMarker(DISPLAY_SYMBOLS[char], rects[0], editorRect, overlayElement, className);
-                            }
-                        } catch (e) {}
-                    }
-                }
+            if (historyIndex >= 0) {
+                const last = historyStack[historyIndex];
+                if (last.mode === state.mode && last.text1 === state.text1 && last.text2 === state.text2 && JSON.stringify(last.segments) === JSON.stringify(state.segments)) return;
             }
 
-            const brs = editorElement.getElementsByTagName('BR');
-            for(let br of brs) {
-                const rect = br.getBoundingClientRect();
-                if (rect.width === 0 && rect.height === 0) continue; 
-                createMarker(DISPLAY_SYMBOLS['\n'], rect, editorRect, overlayElement, 'break');
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
             }
             
-            for(let child of editorElement.children) {
-                if(child.tagName === 'DIV') {
-                    if (child.lastChild && child.lastChild.nodeType === Node.TEXT_NODE) {
-                         range.selectNodeContents(child);
-                         range.collapse(false);
-                         const rects = range.getClientRects();
-                         if(rects.length > 0) {
-                             const r = rects[0];
-                             const markerRect = { left: (window.getComputedStyle(editorElement).direction === 'rtl' ? r.left - 10 : r.right), top: r.top, width: 0, height: r.height };
-                             createMarker(DISPLAY_SYMBOLS['\n'], markerRect, editorRect, overlayElement, 'break');
-                         }
-                    }
-                }
+            historyStack.push(state);
+            if (historyStack.length > 50) historyStack.shift();
+            else historyIndex++;
+        }
+
+        function customUndo() {
+            if (historyIndex > 0) {
+                isNavigatingHistory = true;
+                historyIndex--;
+                applyHistoryState(historyStack[historyIndex]);
+                isNavigatingHistory = false;
             }
         }
 
-        function applyAllVisualizations() {
-            applyVisualizationsForEditor(textInput, overlay);
-            if (isComparisonMode) applyVisualizationsForEditor(textInput2, overlay2);
-        }
-
-        // Stats & Logic
-        function updateStats() {
-            let text = activeInput.innerText;
-            if (text === 'Type or paste your text here...' && activeInput.innerText.trim() === 'Type or paste your text here...') text = '';
-            
-            document.getElementById('charCount').textContent = text.length;
-            document.getElementById('charCountNoControl').textContent = text.replace(/[\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u200B]/g, '').length;
-            document.getElementById('wordCount').textContent = text.trim() === '' ? 0 : text.trim().split(/\s+/).filter(w => w.length > 0).length;
-
-            if (isDiffActive) {
-                clearTimeout(diffDebounceTimer);
-                diffDebounceTimer = setTimeout(updateRealTimeDiff, 500); 
+        function customRedo() {
+            if (historyIndex < historyStack.length - 1) {
+                isNavigatingHistory = true;
+                historyIndex++;
+                applyHistoryState(historyStack[historyIndex]);
+                isNavigatingHistory = false;
             }
-            updateMatchCount();
         }
 
-        // Comparison & Diff
-        function toggleComparisonMode() {
-            isComparisonMode = !isComparisonMode;
+        function applyHistoryState(state) {
+            forceFormat = true;
             
-            if (isComparisonMode) {
-                comparisonBtn.classList.add('is-active-btn');
-                comparisonBtn.innerHTML = '<span class="material-symbols-outlined">split_scene</span>';
-                comparisonBtn.title = "Close Comparison";
-                
-                diffToggleContainer.classList.remove('hidden');
-                rightCol.classList.remove('hidden');
-                labelLeft.classList.remove('hidden');
+            if (state.mode === 'segmentation' && !isSegmentationMode) {
+                isSegmentationMode = true;
+                document.getElementById('segmentationBtn').classList.add('is-active-btn'); 
+                document.getElementById('segmentationToolbar').classList.remove('hidden');
+                document.getElementById('editorGrid').classList.add('hidden'); 
+                segmentationGrid.classList.remove('hidden');
+            } else if (state.mode !== 'segmentation' && isSegmentationMode) {
+                isSegmentationMode = false;
+                document.getElementById('segmentationBtn').classList.remove('is-active-btn'); 
+                document.getElementById('segmentationToolbar').classList.add('hidden');
+                document.getElementById('editorGrid').classList.remove('hidden'); 
+                segmentationGrid.classList.add('hidden');
+            }
+
+            if (state.mode === 'comparison' && !isComparisonMode) {
+                isComparisonMode = true;
+                document.getElementById('comparisonBtn').classList.add('is-active-btn'); 
+                rightCol.classList.remove('hidden'); 
+                document.getElementById('diffToggleButton').classList.remove('hidden'); 
+                document.getElementById('labelLeft').classList.remove('hidden'); 
+                frTarget.classList.remove('hidden'); 
                 editorGrid.classList.add('comparison-active');
-                
-                textInput2.innerHTML = textInput.innerHTML;
-                activeInput = textInput2;
-                
-                observer2.observe(textInput2, observerConfig);
-            } else {
-                comparisonBtn.classList.remove('is-active-btn');
-                comparisonBtn.innerHTML = '<span class="material-symbols-outlined">view_column_2</span>';
-                comparisonBtn.title = "Comparison Mode";
-
-                if (isDiffActive) toggleDiffMode(); 
-
-                diffToggleContainer.classList.add('hidden');
-                rightCol.classList.add('hidden');
-                labelLeft.classList.add('hidden');
+            } else if (state.mode === 'single' && isComparisonMode) {
+                isComparisonMode = false;
+                document.getElementById('comparisonBtn').classList.remove('is-active-btn'); 
+                rightCol.classList.add('hidden'); 
+                document.getElementById('diffToggleButton').classList.add('hidden'); 
+                document.getElementById('labelLeft').classList.add('hidden'); 
+                frTarget.classList.add('hidden'); 
                 editorGrid.classList.remove('comparison-active');
-                
-                textInput.innerHTML = textInput2.innerHTML;
-                activeInput = textInput;
-                
-                observer2.disconnect();
-            }
-            setTimeout(applyAllVisualizations, 300);
-        }
-
-        function updateRealTimeDiff() {
-            if (!isDiffActive || !isComparisonMode) return;
-            
-            const s1 = textInput.scrollTop;
-            const s2 = textInput2.scrollTop;
-
-            const text1 = textInput.innerText; 
-            const text2 = textInput2.innerText; 
-            
-            const diffs = dmp.diff_main(text1, text2);
-            dmp.diff_cleanupSemantic(diffs);
-            
-            let htmlLeft = '';
-            let htmlRight = '';
-            
-            diffs.forEach(part => {
-                const type = part[0]; 
-                let text = part[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-                
-                if (type === 0) {
-                    htmlLeft += text;
-                    htmlRight += text;
-                } else if (type === -1) {
-                    htmlLeft += `<span class="diff-del">${text}</span>`;
-                } else if (type === 1) {
-                    htmlRight += `<span class="diff-ins">${text}</span>`;
-                }
-            });
-
-            textInput.innerHTML = `<div>${htmlLeft}</div>`;
-            textInput2.innerHTML = `<div>${htmlRight}</div>`;
-            
-            textInput.scrollTop = s1;
-            textInput2.scrollTop = s2;
-
-            applyAllVisualizations();
-        }
-
-        function toggleDiffMode() {
-            isDiffActive = !isDiffActive;
-            if (isDiffActive) {
-                diffBtn.classList.add('is-active-btn');
-                diffBtn.innerHTML = '<span class="material-symbols-outlined">article</span>';
-                diffBtn.title = "Hide Diffs";
-                updateRealTimeDiff();
-            } else {
-                diffBtn.classList.remove('is-active-btn');
-                diffBtn.innerHTML = '<span class="material-symbols-outlined">text_compare</span>';
-                diffBtn.title = "Show Diffs";
-                
-                const stripDiffTags = (el) => {
-                    el.innerHTML = el.innerHTML.replace(/<span class="diff-(?:del|ins)"[^>]*>([\s\S]*?)<\/span>/g, '$1');
-                };
-                
-                stripDiffTags(textInput);
-                stripDiffTags(textInput2);
-                
-                setTimeout(applyAllVisualizations, 0);
-            }
-        }
-
-        // Toggles & Actions
-        function toggleVisualizationMode() {
-            isVisualizationActive = !isVisualizationActive;
-            const btn = document.getElementById('vizToggleButton');
-            btn.classList.toggle('is-active-btn');
-            btn.innerHTML = isVisualizationActive ? '<span class="material-symbols-outlined">visibility_off</span>' : '<span class="material-symbols-outlined">visibility</span>';
-            btn.title = isVisualizationActive ? "Hide Visualization" : "Show Visualization";
-            applyAllVisualizations();
-        }
-
-        function setDirection(dir) {
-            document.querySelectorAll('.toggle-container button').forEach(b => {
-               if(b.id && b.id.startsWith('btn-')) b.classList.remove('is-active-btn');
-            });
-            const btn = document.getElementById(`btn-${dir}`);
-            if(btn) btn.classList.add('is-active-btn');
-            
-            textInput.setAttribute('dir', dir);
-            textInput2.setAttribute('dir', dir);
-            applyAllVisualizations();
-        }
-
-        // Find & Replace
-        function getMatchCount(text, regex) {
-            if (!text || !regex) return 0;
-            const matches = text.match(regex);
-            return matches ? matches.length : 0;
-        }
-
-        function updateMatchCount() {
-            const val = document.getElementById('findInput').value;
-            const isRegex = document.getElementById('regexToggle').checked;
-            
-            if (!val) { 
-                matchCounter.textContent = "0 matches"; 
-                return; 
-            }
-            
-            let regex;
-            try {
-                regex = isRegex ? new RegExp(val, 'gi') : new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            } catch(e) { 
-                matchCounter.textContent = "Invalid Regex"; 
-                return; 
+                if (isDiffActive) toggleDiffMode(true);
             }
 
-            if (isComparisonMode) {
-                const count1 = getMatchCount(textInput.innerText, regex);
-                const count2 = getMatchCount(textInput2.innerText, regex);
-                matchCounter.textContent = `${count1} (Orig) | ${count2} (Mod)`;
-            } else {
-                const count = getMatchCount(activeInput.innerText, regex);
-                matchCounter.textContent = `${count} matches`;
+            if (state.mode === 'single' || state.mode === 'comparison') {
+                setRawText(textInput, state.text1);
+                if (state.mode === 'comparison') setRawText(textInput2, state.text2);
+                if (isComparisonMode && isDiffActive) updateDiff();
+            } else if (state.mode === 'segmentation') {
+                segments = state.segments.map(s => ({id: crypto.randomUUID(), text: s.text, trailingSpace: s.trailingSpace}));
+                renderSegments();
             }
-            applyAllVisualizations();
-        }
-
-        function findNext() {
-            const val = document.getElementById('findInput').value;
-            if(!val) return;
             
-            // In comparison mode, always focus modified box first
-            if (isComparisonMode) textInput2.focus();
-            
-            if(!window.find(val, false, false, true, false, false, false)) {
-                // Wrap around
-                const target = isComparisonMode ? textInput2 : activeInput;
-                window.getSelection().collapse(target, 0);
-                window.find(val, false, false, true, false, false, false);
-            }
-        }
-        function highlightMatches() { applyAllVisualizations(); }
-        
-        function replaceNext() {
-            const findVal = document.getElementById('findInput').value;
-            const repVal = document.getElementById('replaceInput').value;
-            if(!findVal) return;
-            
-            // Comparison mode: focus target right box
-            if (isComparisonMode) textInput2.focus();
-
-            const sel = window.getSelection();
-            // In Comparison Mode, ensure selection is in the right box
-            if (isComparisonMode && !textInput2.contains(sel.anchorNode)) {
-                 findNext();
-                 return;
-            }
-
-            if(!sel.isCollapsed && sel.toString().toLowerCase() === findVal.toLowerCase()) { 
-                document.execCommand('insertText', false, repVal);
-            }
-            findNext();
-        }
-        
-        function replaceAll() {
-            const findVal = document.getElementById('findInput').value;
-            const repVal = document.getElementById('replaceInput').value;
-            if(!findVal) return;
-            
-            const isRegex = document.getElementById('regexToggle').checked;
-            try {
-                const regex = isRegex ? new RegExp(findVal, 'g') : new RegExp(findVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                
-                // Target: Comparison Mode -> Right Box, Normal -> Active Box
-                const target = isComparisonMode ? textInput2 : activeInput;
-                
-                const txt = target.innerText;
-                const newTxt = txt.replace(regex, repVal);
-                const lines = newTxt.split('\n');
-                target.innerHTML = lines.map(l => `<div>${l.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</div>`).join('');
-                
-                updateStats();
-                applyAllVisualizations();
-            } catch(e) { console.error(e); }
-        }
-
-        // Generic
-        function insertControlChar(c) {
-            activeInput.focus();
-            document.execCommand('insertText', false, c);
-            document.getElementById('insertDropdownMenu').classList.add('hidden');
+            forceFormat = false;
+            if (isTagsMode) renderTagUI();
             updateStats();
         }
-        function showTemporaryMessage(msg) {
-            const el = document.getElementById('messageDisplay');
-            el.textContent = msg;
-            el.style.backgroundColor = '#374151';
-            el.style.opacity = '1';
-            setTimeout(() => el.style.opacity = '0', 2000);
+
+        const targets = {
+            ' ': { class: 'vis-char space' }, '\xA0': { class: 'vis-char nbsp' }, '\t': { class: 'vis-char tab' },
+            '\u200F': { class: 'vis-ctrl rlm', label: 'RLM' }, '\u200E': { class: 'vis-ctrl lrm', label: 'LRM' },
+            '\u202B': { class: 'vis-ctrl rle', label: 'RLE' }, '\u202A': { class: 'vis-ctrl lre', label: 'LRE' }
+        };
+        const targetRegex = /([ \xA0\t\u200F\u200E\u202B\u202A])/g; const testRegex = /[ \xA0\t\u200F\u200E\u202B\u202A]/;
+
+        function showModal(msg, cb) {
+            document.getElementById('modalMessage').textContent = msg;
+            const btn = document.getElementById('modalConfirm'); const nBtn = btn.cloneNode(true); btn.parentNode.replaceChild(nBtn, btn);
+            nBtn.addEventListener('click', () => { closeModal(); if(cb) cb(); });
+            document.getElementById('customModal').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('customModal').classList.remove('bg-opacity-0'); document.getElementById('customModalInner').classList.remove('scale-95', 'opacity-0'); }, 10);
         }
-        function copyText() {
-            navigator.clipboard.writeText(activeInput.innerText).then(() => showTemporaryMessage('Copied!'));
+        function closeModal() {
+            document.getElementById('customModalInner').classList.add('scale-95', 'opacity-0'); document.getElementById('customModal').classList.add('bg-opacity-0');
+            setTimeout(() => document.getElementById('customModal').classList.add('hidden'), 200);
         }
-        function saveText() {
-            const blob = new Blob([activeInput.innerText], {type: 'text/plain'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'text.txt';
-            a.click();
+
+        function toggleDropdown(id) {
+            document.querySelectorAll('.dropdown-menu').forEach(m => { if (m.id !== id) m.classList.add('hidden'); });
+            document.getElementById(id).classList.toggle('hidden');
+        }
+        function unwrap(el) { const p = el.parentNode; while (el.firstChild) p.insertBefore(el.firstChild, el); p.removeChild(el); }
+
+        function rebuildPilcrows(editor) {
+            editor.querySelectorAll('.vis-pilcrow:not(.diff-del):not(.diff-add)').forEach(el => el.remove());
+            if (!editor.classList.contains('show-vis')) return;
+
+            editor.querySelectorAll('br:not(.placeholder-br):not(.diff-deleted-br)').forEach(br => {
+                const existingPilcrow = br.previousSibling && br.previousSibling.nodeType === Node.ELEMENT_NODE && br.previousSibling.classList.contains('vis-pilcrow');
+                if (!existingPilcrow) {
+                    const p = document.createElement('span'); p.className = 'vis-pilcrow inline-pilcrow'; p.contentEditable = 'false'; p.textContent = '¶';
+                    if (br.parentNode) br.parentNode.insertBefore(p, br);
+                }
+            });
+
+            const blocks = editor.querySelectorAll('.editor-block');
+            blocks.forEach((b, i) => {
+                const diffDelPilcrow = Array.from(b.childNodes).find(n => n.nodeType === Node.ELEMENT_NODE && n.classList.contains('vis-pilcrow') && n.classList.contains('diff-del'));
+                if (diffDelPilcrow) return;
+
+                let lastVis = b.lastChild;
+                while(lastVis && (lastVis.nodeType === Node.TEXT_NODE && lastVis.nodeValue === '' || lastVis.classList && (lastVis.classList.contains('placeholder-br') || lastVis.id && lastVis.id.startsWith('caret')))) { lastVis = lastVis.previousSibling; }
+                const endsBr = lastVis && lastVis.tagName === 'BR';
+                const isLastBlock = i === blocks.length - 1;
+                
+                if (!isLastBlock && !endsBr) {
+                    const p = document.createElement('span'); p.className = 'vis-pilcrow block-pilcrow'; p.contentEditable = 'false'; p.textContent = '¶';
+                    const ph = b.querySelector('.placeholder-br');
+                    if (ph && b === ph.parentNode) b.insertBefore(p, ph); else b.appendChild(p);
+                }
+            });
+        }
+
+        function wrapTextNodes(node) {
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+            const nodes = []; let n;
+            while (n = walker.nextNode()) {
+                if (n.parentNode && (n.parentNode.classList.contains('vis-char') || n.parentNode.classList.contains('vis-ctrl') || n.parentNode.hasAttribute('data-tag-raw') || n.parentNode.classList.contains('format-wrapper-active') || n.parentNode.classList.contains('app-tag-hidden'))) continue;
+                nodes.push(n);
+            }
+            nodes.forEach(tn => {
+                targetRegex.lastIndex = 0;
+                const text = tn.nodeValue; if (!targetRegex.test(text)) return;
+                targetRegex.lastIndex = 0;
+                const p = tn.parentNode; const frags = text.split(targetRegex); const frag = document.createDocumentFragment();
+                frags.forEach(part => {
+                    if (part === '') return;
+                    if (targets[part]) {
+                        const s = document.createElement('span'); s.className = targets[part].class; s.textContent = part; s.draggable = true;
+                        if (targets[part].label) s.setAttribute('data-label', targets[part].label); frag.appendChild(s);
+                    } else frag.appendChild(document.createTextNode(part));
+                });
+                p.replaceChild(frag, tn);
+            });
+        }
+
+        function checkCanFormat(match, isPair) {
+            const isHtml = /^<[^>]+>$/.test(match); const isEscape = /^\\[nrtbf\\\"\']$/.test(match);
+            const stripped = match.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, '').toLowerCase().trim();
+            const base = stripped.split(' ')[0].replace(/^(open|start|end|close|closing)/, '');
+            const breaks = ['br', 'break', 'linebreak', 'line_break'];
+            const fmts = ['b', 'i', 'u', 'a', 'p', 'div', 'span', 'strong', 'em', 'mark', 'bold', 'italic', 'underline', 'link', 'url', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+            if (breaks.includes(base) || isEscape || (isHtml && match.toLowerCase().includes('br'))) return true;
+            if (isPair && (fmts.includes(base) || isHtml)) return true;
+            return false;
+        }
+
+        function getScannerText(editor) {
+            let text = '';
+            editor.querySelectorAll('.editor-block').forEach((block, index) => {
+                let bt = ''; const walker = document.createTreeWalker(block, NodeFilter.SHOW_ALL, null, false); let node;
+                while (node = walker.nextNode()) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.hasAttribute('data-tag-raw')) bt += ' ' + node.getAttribute('data-tag-raw') + ' ';
+                        else if (node.tagName === 'BR' && !node.classList.contains('placeholder-br') && !node.classList.contains('diff-deleted-br')) bt += '\n';
+                    } else if (node.nodeType === Node.TEXT_NODE) {
+                        let p = node.parentNode; let skip = false;
+                        while(p && p !== block) {
+                            if (p.hasAttribute('data-tag-raw') || p.classList.contains('vis-pilcrow') || p.classList.contains('app-tag-hidden')) { skip = true; break; }
+                            p = p.parentNode;
+                        }
+                        if (!skip) bt += node.nodeValue;
+                    }
+                }
+                text += bt; if (index < editor.querySelectorAll('.editor-block').length - 1) text += '\n';
+            }); return text;
+        }
+
+        function wrapRegisteredTags(node) {
+            if (!isTagsMode) return; const activeTags = tagRegistry.filter(t => t.enabled); if (activeTags.length === 0) return;
+            const es = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const strs = [];
+            activeTags.forEach(t => { if (t.isPair) { strs.push(t.openText); strs.push(t.closeText); } else strs.push(t.text); });
+            strs.sort((a,b) => b.length - a.length); if (strs.length === 0) return;
+            
+            const rx = new RegExp(`(${strs.map(es).join('|')})`, 'g');
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false); const nodes = []; let n;
+            while(n = walker.nextNode()) {
+                if (n.parentNode && (n.parentNode.classList.contains('vis-char') || n.parentNode.classList.contains('vis-ctrl') || n.parentNode.hasAttribute('data-tag-raw') || n.parentNode.classList.contains('app-tag-hidden'))) continue;
+                nodes.push(n);
+            }
+            nodes.forEach(tn => {
+                const text = tn.nodeValue; rx.lastIndex = 0; if (!rx.test(text)) return; rx.lastIndex = 0;
+                const frags = text.split(rx); const parent = tn.parentNode; const frag = document.createDocumentFragment();
+                frags.forEach(part => {
+                    if (part === '') return;
+                    const tObj = activeTags.find(t => (t.isPair ? (t.openText === part || t.closeText === part) : t.text === part));
+                    if (tObj) {
+                        const isOpener = tObj.isPair && part === tObj.openText; let el;
+                        if (tObj.displayMode === 'tag') {
+                            el = document.createElement('span'); el.className = 'app-tag bidi-isolate';
+                            if (tObj.isPair) el.classList.add(isOpener ? 'tag-opener' : 'tag-closer'); else el.classList.add('tag-standalone');
+                            el.textContent = part.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, ''); 
+                            el.setAttribute('dir', 'ltr'); el.contentEditable = 'false'; el.draggable = true;
+                        } else if (tObj.displayMode === 'placeholder') {
+                            el = document.createElement('span'); el.className = 'app-tag-ph';
+                            const pt = tObj.placeholderText || ' ';
+                            const hasRTL = /[\u0590-\u05FF\u0600-\u06FF]/.test(pt);
+                            const hasLTR = /[a-zA-Z0-9]/.test(pt);
+                            let formattedPt = pt;
+                            if (hasRTL && !hasLTR) formattedPt = '\u200F' + pt + '\u200F';
+                            else if (hasLTR && !hasRTL) formattedPt = '\u200E' + pt + '\u200E';
+                            el.textContent = formattedPt || ' '; 
+                            el.contentEditable = 'false'; el.draggable = true;
+                        } else if (tObj.displayMode === 'hide') {
+                            el = document.createElement('span'); el.className = 'app-tag-hidden'; el.style.display = 'none'; el.setAttribute('dir', 'ltr'); el.contentEditable = 'false';
+                        } else if (tObj.displayMode === 'format') {
+                            const pClean = part.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, '').toLowerCase().trim(); const base = pClean.split(' ')[0];
+                            if (['br','break','linebreak','line_break'].includes(base) || part.includes('\n') || part.includes('\\n') || part.includes('\\r')) { el = document.createElement('br'); } 
+                            else { el = document.createElement('span'); el.style.display = 'none'; el.setAttribute('dir', 'ltr'); }
+                        } else if (tObj.displayMode === 'custom') {
+                            el = document.createElement('span'); el.className = 'app-tag-custom select-all';
+                            let cHtml = tObj.customHtml || '';
+                            if (tObj.isPair && !isOpener) {
+                                const match = cHtml.match(/^<\s*([a-zA-Z0-9\-]+)/);
+                                if (match) cHtml = `</${match[1]}>`;
+                            }
+                            el.innerHTML = cHtml; el.setAttribute('dir', 'ltr'); el.contentEditable = 'false'; el.draggable = true;
+                        }
+                        el.setAttribute('data-tag-raw', part); el.setAttribute('data-tag-id', tObj.id); el.setAttribute('data-display-mode', tObj.displayMode);
+                        el.setAttribute('data-ph-text', tObj.placeholderText || ''); el.setAttribute('data-custom-html', tObj.customHtml || '');
+                        frag.appendChild(el);
+                    } else frag.appendChild(document.createTextNode(part));
+                });
+                parent.replaceChild(frag, tn);
+            });
+        }
+
+        function applyFormatVisuals(editor) {
+            if (!isTagsMode) return; const pairs = tagRegistry.filter(t => t.enabled && t.isPair && (t.displayMode === 'format' || t.displayMode === 'custom')); if (pairs.length === 0) return;
+            editor.querySelectorAll('.editor-block').forEach(block => {
+                pairs.forEach(pair => {
+                    Array.from(block.querySelectorAll(`[data-tag-raw="${pair.openText.replace(/"/g, '\\"')}"]`)).forEach(opener => {
+                        let curr = opener.nextSibling; const wrapNodes = []; let closer = null;
+                        while (curr) { if (curr.nodeType === Node.ELEMENT_NODE && curr.getAttribute('data-tag-raw') === pair.closeText) { closer = curr; break; } wrapNodes.push(curr); curr = curr.nextSibling; }
+                        if (closer && wrapNodes.length > 0) {
+                            let w;
+                            if (pair.displayMode === 'custom') {
+                                const htmlStr = pair.customHtml || '';
+                                const match = htmlStr.match(/^<\s*([a-zA-Z0-9\-]+)/);
+                                if (match) {
+                                    w = document.createElement(match[1]);
+                                    const tempDiv = document.createElement('div'); tempDiv.innerHTML = htmlStr + `</${match[1]}>`;
+                                    if (tempDiv.firstElementChild) { Array.from(tempDiv.firstElementChild.attributes).forEach(attr => w.setAttribute(attr.name, attr.value)); }
+                                } else w = document.createElement('span');
+                                w.className = (w.className ? w.className + ' ' : '') + 'format-wrapper-active';
+                            } else {
+                                w = document.createElement('span'); w.className = 'format-wrapper-active';
+                                const pClean = pair.openText.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, '').toLowerCase().trim(); const base = pClean.split(' ')[0].replace(/^(open|start)/, '');
+                                if (['b','bold','strong'].includes(base)) w.style.fontWeight = 'bold'; else if (['i','italic','em'].includes(base)) w.style.fontStyle = 'italic'; else if (['u','underline'].includes(base)) w.style.textDecoration = 'underline'; else if (base === 'mark') w.style.backgroundColor = 'yellow'; else if (['a','link','url'].includes(base)) { w.style.color = '#2563eb'; w.style.textDecoration = 'underline'; } else if (/^h[1-6]$/.test(base)) { w.style.fontWeight = 'bold'; w.style.fontSize = '1.2em'; }
+                            }
+                            if(opener.parentNode) {
+                                opener.parentNode.insertBefore(w, wrapNodes[0]); wrapNodes.forEach(n => w.appendChild(n));
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        function applySearchHighlights(editor) {
+            if (!document.getElementById('highlightToggle').checked) return;
+            const findStr = document.getElementById('findInput').value; if (!findStr) return;
+            const isRegex = document.getElementById('regexToggle').checked; let rx;
+            try { rx = isRegex ? new RegExp(`(${findStr})`, 'g') : new RegExp(`(${findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'); } catch(e) { return; }
+            const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false); const nodes = []; let node;
+            while (node = walker.nextNode()) {
+                if (node.parentNode && (node.parentNode.classList.contains('vis-char') || node.parentNode.classList.contains('vis-ctrl') || node.parentNode.classList.contains('search-highlight') || node.parentNode.hasAttribute('data-tag-raw') || node.parentNode.classList.contains('app-tag-hidden'))) continue;
+                nodes.push(node);
+            }
+            nodes.forEach(tn => {
+                const text = tn.nodeValue; rx.lastIndex = 0; if (!rx.test(text)) return;
+                const p = tn.parentNode; const frags = text.split(rx); const frag = document.createDocumentFragment();
+                frags.forEach(part => {
+                    if (part === '') return; let isMatch = false;
+                    if (isRegex) { try { const exactRx = new RegExp(`^${rx.source}$`, rx.flags.replace('g', '')); isMatch = exactRx.test(part); } catch(e){} } 
+                    else isMatch = part.toLowerCase() === findStr.toLowerCase();
+                    if (isMatch) { const span = document.createElement('span'); span.className = 'search-highlight bg-yellow-300 text-black rounded-sm px-[1px]'; span.textContent = part; frag.appendChild(span); } 
+                    else frag.appendChild(document.createTextNode(part));
+                }); p.replaceChild(frag, tn);
+            });
+        }
+
+        function saveCaret(editor) {
+            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return false;
+            const sel = window.getSelection(); if (!sel || sel.rangeCount === 0) return false;
+            const range = sel.getRangeAt(0); if (!editor.contains(range.commonAncestorContainer)) return false;
+            const s = document.createElement('span'); s.id = 'caret-start'; const e = document.createElement('span'); e.id = 'caret-end';
+            const r = range.cloneRange(); r.collapse(false); r.insertNode(e); range.collapse(true); range.insertNode(s); return true;
+        }
+
+        function restoreCaret() {
+            const s = document.getElementById('caret-start'); const e = document.getElementById('caret-end'); if (!s || !e) return;
+            const sel = window.getSelection(); const r = document.createRange(); r.setStartBefore(s); r.setEndBefore(e); sel.removeAllRanges(); sel.addRange(r); s.remove(); e.remove();
+        }
+
+        function formatEditor(editor) {
+            if (editor.isFormatting) return;
+            
+            const flattenEmptyBlocks = () => {
+                editor.querySelectorAll('.editor-block').forEach(b => {
+                    let hasRealContent = false;
+                    const walker = document.createTreeWalker(b, NodeFilter.SHOW_ALL, null, false);
+                    let n;
+                    while (n = walker.nextNode()) {
+                        if (n.nodeType === Node.TEXT_NODE && n.nodeValue.length > 0) hasRealContent = true;
+                        if (n.nodeType === Node.ELEMENT_NODE && (n.hasAttribute('data-tag-raw') || n.classList.contains('vis-char') || n.classList.contains('vis-ctrl'))) hasRealContent = true;
+                    }
+                    if (!hasRealContent) {
+                        const carets = [];
+                        Array.from(b.querySelectorAll('span[id^="caret-"]')).forEach(c => carets.push(c));
+                        b.innerHTML = '';
+                        carets.forEach(c => b.appendChild(c));
+                        const br = document.createElement('br'); br.className = 'placeholder-br'; b.appendChild(br);
+                    } else {
+                        b.querySelectorAll('.placeholder-br').forEach(br => br.remove());
+                    }
+                });
+            };
+
+            flattenEmptyBlocks();
+
+            let needsFmt = forceFormat;
+            if (!needsFmt) {
+                const elements = editor.querySelectorAll('*:not(.editor-block)');
+                for (let i = 0; i < elements.length; i++) {
+                    const el = elements[i];
+                    if (['BR','DIV','P'].includes(el.tagName) || ['caret-start','caret-end'].includes(el.id) || el.classList.contains('vis-pilcrow')) continue; 
+                    if (el.hasAttribute('data-tag-raw')) {
+                        const t = tagRegistry.find(x => x.id === el.getAttribute('data-tag-id'));
+                        if (!isTagsMode || !t || !t.enabled || el.getAttribute('data-display-mode') !== t.displayMode || el.getAttribute('data-ph-text') !== (t.placeholderText || '') || el.getAttribute('data-custom-html') !== (t.customHtml || '')) { needsFmt = true; break; } continue; 
+                    }
+                    if (el.tagName === 'SPAN') {
+                        if (el.classList.contains('format-wrapper-active')) { needsFmt = true; break; }
+                        const isVis = el.classList.contains('vis-char') || el.classList.contains('vis-ctrl'); const isSearch = el.classList.contains('search-highlight');
+                        if (!isVis && !isSearch) { if (!el.classList.contains('diff-del-text') && !el.classList.contains('diff-add-text')) { needsFmt = true; break; } } 
+                        else if (isVis) { if (el.textContent.length !== 1 || !targets[el.textContent]) { needsFmt = true; break; } }
+                    } else { needsFmt = true; break; }
+                }
+            }
+
+            if (!needsFmt) {
+                testRegex.lastIndex = 0;
+                let tagRegex = null;
+                if (isTagsMode) {
+                    const activeTags = tagRegistry.filter(t => t.enabled);
+                    const strs = [];
+                    activeTags.forEach(t => { if (t.isPair) { strs.push(t.openText); strs.push(t.closeText); } else strs.push(t.text); });
+                    if (strs.length > 0) tagRegex = new RegExp(`(${strs.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`);
+                }
+                const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false); let n;
+                while (n = walker.nextNode()) {
+                    if (n.parentNode && (n.parentNode.classList.contains('vis-char') || n.parentNode.classList.contains('vis-ctrl') || n.parentNode.classList.contains('search-highlight') || n.parentNode.hasAttribute('data-tag-raw') || n.parentNode.classList.contains('format-wrapper-active') || n.parentNode.classList.contains('app-tag-hidden'))) continue;
+                    if (testRegex.test(n.nodeValue)) { needsFmt = true; break; }
+                    if (tagRegex && tagRegex.test(n.nodeValue)) { needsFmt = true; break; }
+                }
+            }
+
+            if (!needsFmt) {
+                for (let i = 0; i < editor.childNodes.length; i++) {
+                    const node = editor.childNodes[i]; if (['caret-start','caret-end'].includes(node.id)) continue;
+                    if (node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('editor-block'))) { needsFmt = true; break; }
+                    if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('editor-block')) {
+                        const isAuto = currentDirectionMode === 'auto';
+                        if (isAuto && node.textContent.trim() === '' && node.getAttribute('dir') !== 'ltr') { needsFmt = true; break; }
+                        else if (isAuto && node.textContent.trim() !== '' && node.getAttribute('dir') !== 'auto') { needsFmt = true; break; }
+                        else if (!isAuto && node.getAttribute('dir') !== currentDirectionMode) { needsFmt = true; break; }
+                    }
+                }
+            }
+
+            const checkPh = () => { if (getRawText(editor) === '') editor.classList.add('is-empty'); else editor.classList.remove('is-empty'); };
+            if (!needsFmt) { checkPh(); rebuildPilcrows(editor); return; }
+
+            editor.isFormatting = true; const hasCaret = saveCaret(editor); let unwrapped = false;
+            const justDropped = editor.hasAttribute('data-just-dropped');
+            editor.querySelectorAll('*:not(.editor-block)').forEach(el => {
+                if (el.classList.contains('format-wrapper-active')) { unwrap(el); unwrapped = true; return; }
+                if (el.hasAttribute('data-tag-raw')) {
+                    const t = tagRegistry.find(x => x.id === el.getAttribute('data-tag-id')); let td = false;
+                    if (!isTagsMode || !t || !t.enabled) td = true; else {
+                        if (el.getAttribute('data-display-mode') !== t.displayMode || el.getAttribute('data-ph-text') !== (t.placeholderText || '') || el.getAttribute('data-custom-html') !== (t.customHtml || '')) td = true;
+                    }
+                    if (td) { const r = document.createTextNode(el.getAttribute('data-tag-raw')); el.parentNode.replaceChild(r, el); unwrapped = true; } return; 
+                }
+                if (el.tagName === 'BR') {
+                    if (el.classList.contains('placeholder-br')) {
+                        let hasVal = false; const parent = el.parentElement;
+                        if (parent) {
+                            const w = document.createTreeWalker(parent, NodeFilter.SHOW_ALL, null, false); let n;
+                            while (n = w.nextNode()) { if (n.nodeType === Node.TEXT_NODE && n.nodeValue.length > 0) { hasVal = true; break; } if (n.nodeType === Node.ELEMENT_NODE && n.hasAttribute('data-tag-raw')) { hasVal = true; break; } }
+                        }
+                        if (hasVal) { el.remove(); unwrapped = true; }
+                    } return; 
+                }
+                if (['DIV','P'].includes(el.tagName) || ['caret-start','caret-end'].includes(el.id) || el.classList.contains('vis-pilcrow')) {
+                    return;
+                }
+                if (el.tagName === 'SPAN') {
+                    const isVis = el.classList.contains('vis-char') || el.classList.contains('vis-ctrl'); const isSearch = el.classList.contains('search-highlight');
+                    if (isVis) { const text = el.textContent; if (text.length !== 1 || !targets[text]) { unwrap(el); unwrapped = true; } } else if (isSearch) { unwrap(el); unwrapped = true; } else if (!el.classList.contains('diff-del-text') && !el.classList.contains('diff-add-text')) { unwrap(el); unwrapped = true; }
+                } else { unwrap(el); unwrapped = true; }
+            });
+            
+            if (unwrapped) editor.normalize();
+            wrapRegisteredTags(editor); wrapTextNodes(editor); applySearchHighlights(editor);
+
+            const nodes = Array.from(editor.childNodes);
+            let firstBlock = nodes.find(n => n.nodeType === Node.ELEMENT_NODE && (n.classList.contains('editor-block') || n.tagName === 'DIV' || n.tagName === 'P'));
+            let currentBlock = null; let insertRef = firstBlock ? firstBlock.firstChild : null;
+
+            nodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE && node.nodeValue === '') { node.remove(); return; }
+                if (node.nodeType === Node.ELEMENT_NODE && (node.classList.contains('editor-block') || node.tagName === 'DIV' || node.tagName === 'P')) {
+                    node.classList.add('editor-block'); currentBlock = node;
+                    const isAuto = currentDirectionMode === 'auto';
+                    if (isAuto && node.textContent.trim() === '') { node.setAttribute('dir', 'ltr'); node.style.textAlign = 'left'; }
+                    else if (isAuto) { node.setAttribute('dir', 'auto'); node.style.textAlign = 'start'; }
+                    else { node.setAttribute('dir', currentDirectionMode); node.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; }
+                } else {
+                    if (!currentBlock) {
+                        if (firstBlock) {
+                            if (firstBlock.innerHTML === '<br>' || firstBlock.innerHTML === '<br class="placeholder-br">') { firstBlock.innerHTML = ''; insertRef = null; }
+                            if (insertRef && insertRef.parentNode !== firstBlock) insertRef = null;
+                            firstBlock.insertBefore(node, insertRef); return;
+                        } else {
+                            currentBlock = document.createElement('div'); currentBlock.className = 'editor-block';
+                            const isAuto = currentDirectionMode === 'auto';
+                            if (isAuto && node.textContent.trim() === '') { currentBlock.setAttribute('dir', 'ltr'); currentBlock.style.textAlign = 'left'; }
+                            else if (isAuto) { currentBlock.setAttribute('dir', 'auto'); currentBlock.style.textAlign = 'start'; }
+                            else { currentBlock.setAttribute('dir', currentDirectionMode); currentBlock.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; }
+                            editor.insertBefore(currentBlock, node); firstBlock = currentBlock; insertRef = null;
+                        }
+                    }
+                    if (currentBlock.innerHTML === '<br>' || currentBlock.innerHTML === '<br class="placeholder-br">') currentBlock.innerHTML = '';
+                    currentBlock.appendChild(node);
+                }
+            });
+
+            flattenEmptyBlocks();
+
+            checkPh(); applyFormatVisuals(editor); rebuildPilcrows(editor);
+            if (hasCaret) restoreCaret(); editor.isFormatting = false;
+        }
+
+        // ================= Raw Text Extraction & Injection =================
+        function getRawText(editor) {
+            let text = '';
+            editor.querySelectorAll('.editor-block').forEach((block, index) => {
+                let blockText = ''; const walker = document.createTreeWalker(block, NodeFilter.SHOW_ALL, null, false); let node;
+                while (node = walker.nextNode()) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.id === 'caret-start') blockText += '\uE000'; else if (node.id === 'caret-end') blockText += '\uE001';
+                        else if (node.hasAttribute('data-tag-raw')) blockText += node.getAttribute('data-tag-raw');
+                        else if (node.tagName === 'BR') {
+                            if (node.classList.contains('placeholder-br') || node.classList.contains('diff-deleted-br')) continue; 
+                            let isTrailing = true; let next = node.nextSibling;
+                            while (next) {
+                                if (next.nodeType === Node.TEXT_NODE && next.nodeValue.length > 0) { isTrailing = false; break; }
+                                if (next.nodeType === Node.ELEMENT_NODE) {
+                                    if (next.id && next.id.startsWith('caret')) {} 
+                                    else if (next.hasAttribute('data-tag-raw')) { isTrailing = false; break; }
+                                    else if (next.tagName === 'SPAN' && next.textContent.length === 0) {} 
+                                    else if (next.classList.contains('vis-pilcrow')) {} 
+                                    else if (next.classList.contains('diff-deleted-br')) {} 
+                                    else if (next.textContent.length > 0) { isTrailing = false; break; }
+                                }
+                                next = next.nextSibling;
+                            }
+                            if (!isTrailing) blockText += '\n';
+                        }
+                    } else if (node.nodeType === Node.TEXT_NODE) {
+                        let parent = node.parentNode; let skip = false;
+                        while(parent && parent !== block) {
+                            if (parent.classList.contains('vis-pilcrow') || parent.hasAttribute('data-tag-raw') || parent.classList.contains('app-tag-hidden') || parent.classList.contains('format-wrapper-active')) { skip = true; break; }
+                            parent = parent.parentNode;
+                        }
+                        if (!skip) blockText += node.nodeValue;
+                    }
+                }
+                text += blockText; if (index < editor.querySelectorAll('.editor-block').length - 1) text += '\n';
+            }); return text;
+        }
+
+        function setRawText(editor, text) {
+            editor.innerHTML = ''; if (!text) { formatEditor(editor); return; } 
+            text.split('\n').forEach(line => {
+                const block = document.createElement('div'); block.className = 'editor-block';
+                block.setAttribute('dir', currentDirectionMode); block.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'start';
+                const plainText = line.replace(/\uE000|\uE001/g, '');
+                if (plainText === '') { const br = document.createElement('br'); br.className = 'placeholder-br'; block.appendChild(br); }
+                if (line !== '') {
+                    line.split(/(\uE000|\uE001)/).forEach(seg => {
+                        if (seg === '\uE000') { const c = document.createElement('span'); c.id = 'caret-start'; block.appendChild(c); } 
+                        else if (seg === '\uE001') { const c = document.createElement('span'); c.id = 'caret-end'; block.appendChild(c); } 
+                        else if (seg) block.appendChild(document.createTextNode(seg));
+                    });
+                } editor.appendChild(block);
+            });
+            forceFormat = true; formatEditor(editor); forceFormat = false;
+        }
+
+        // ================= Tags & PH Logic Engine =================
+        function toggleTagsMode() {
+            isTagsMode = !isTagsMode; document.getElementById('tagsModeBtn').classList.toggle('is-active-btn');
+            if (isTagsMode) { document.getElementById('tagsSection').classList.remove('hidden'); document.getElementById('tagsScanBtn').classList.remove('hidden'); if (!hasScannedTags) scanForTags(); else reformatAll(); } 
+            else { document.getElementById('tagsSection').classList.add('hidden'); document.getElementById('tagsScanBtn').classList.add('hidden'); reformatAll(); }
+        }
+
+        function sortTagsByAppearance() {
+            let tText = '';
+            if (isSegmentationMode) tText = segments.map(s => s.text).join('\n');
+            else if (isComparisonMode) tText = getRawText(textInput) + '\n' + getRawText(textInput2);
+            else tText = getRawText(textInput);
+            tagRegistry.forEach(t => { const s = t.isPair ? t.openText : t.text; let idx = tText.indexOf(s); t.appearanceIndex = idx === -1 ? Infinity : idx; });
+            tagRegistry.sort((a, b) => a.appearanceIndex - b.appearanceIndex);
+        }
+
+        function scanForTags() {
+            let allRaw = '';
+            if (isSegmentationMode) allRaw = segments.map((s, i) => getScannerText(document.getElementById(`seg-input-${i}`))).join('\n');
+            else if (isComparisonMode) allRaw = getScannerText(textInput) + '\n' + getScannerText(textInput2);
+            else allRaw = getScannerText(textInput);
+
+            const regex = /(&#?[a-zA-Z0-9]+;|<[^>]+>|\[[^\]]+\]|\{[^\}]+\}|[A-Z][A-Z0-9_]*[A-Z0-9]|\\[nrtbf\\\"\']|[\uE002-\uF8FF])/g;
+            const matchesRaw = [...new Set(allRaw.match(regex) || [])].map(m => m.trim());
+            const matches = [];
+            matchesRaw.forEach(m => {
+                if (/^[A-Z][A-Z0-9_]*[A-Z0-9]$/.test(m) && !/^<|>$|^\[|\]$|^\{|\}$/.test(m)) { const isolatedArr = m.match(/[A-Z][A-Z0-9_]*[A-Z0-9]/g); if (isolatedArr) isolatedArr.forEach(iso => matches.push(iso)); } 
+                else matches.push(m);
+            });
+            
+            tagRegistry.forEach(t => t.inDocument = false); const matchedClosers = new Set();
+            matches.forEach(match => {
+                if (matchedClosers.has(match)) return;
+                let isPair = false; let closeText = '';
+                let strippedOpener = match.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').trim();
+                let possibleBases = [strippedOpener];
+                if (strippedOpener.toLowerCase().startsWith('open')) possibleBases.push(strippedOpener.substring(4));
+                if (strippedOpener.toLowerCase().startsWith('start')) possibleBases.push(strippedOpener.substring(5));
+
+                for (let m of matches) {
+                    if (m === match) continue;
+                    let strippedM = m.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, '').trim();
+                    for (let b of possibleBases) {
+                        if (strippedM.toLowerCase() === 'end' + b.toLowerCase() || strippedM.toLowerCase() === 'close' + b.toLowerCase() || strippedM.toLowerCase() === 'closing' + b.toLowerCase() || (strippedM.toLowerCase() === b.toLowerCase() && m.includes('/'))) { isPair = true; closeText = m; break; }
+                    } if (isPair) break;
+                }
+                
+                if (isPair) {
+                    matchedClosers.add(closeText);
+                    let existing = tagRegistry.find(t => t.isPair && t.openText === match && t.closeText === closeText);
+                    if (existing) existing.inDocument = true; else {
+                        let sOpenIdx = tagRegistry.findIndex(t => !t.isPair && t.text === match); let sCloseIdx = tagRegistry.findIndex(t => !t.isPair && t.text === closeText);
+                        let dMode = 'tag', pText = '', cHtml = '', en = true;
+                        if (sOpenIdx > -1) { let s = tagRegistry[sOpenIdx]; dMode = s.displayMode; pText = s.placeholderText; cHtml = s.customHtml; en = s.enabled; tagRegistry.splice(sOpenIdx, 1); sCloseIdx = tagRegistry.findIndex(t => !t.isPair && t.text === closeText); }
+                        if (sCloseIdx > -1) tagRegistry.splice(sCloseIdx, 1);
+                        tagRegistry.push({ id: crypto.randomUUID(), isPair: true, openText: match, closeText: closeText, displayMode: dMode, placeholderText: pText, customHtml: cHtml, enabled: en, canFormat: checkCanFormat(match, true), inDocument: true });
+                    }
+                }
+            });
+            
+            matches.forEach(match => {
+                if (matchedClosers.has(match)) return;
+                let existingPair = tagRegistry.find(t => t.isPair && (t.openText === match || t.closeText === match)); if (existingPair) { existingPair.inDocument = true; return; }
+                let existingStandalone = tagRegistry.find(t => !t.isPair && t.text === match); if (existingStandalone) { existingStandalone.inDocument = true; return; }
+                tagRegistry.push({ id: crypto.randomUUID(), isPair: false, text: match, displayMode: 'tag', placeholderText: '', customHtml: '', enabled: true, canFormat: checkCanFormat(match, false), inDocument: true });
+            });
+            hasScannedTags = true; sortTagsByAppearance(); renderTagUI(); reformatAll();
+        }
+
+        function reformatAll() {
+            forceFormat = true; formatEditor(textInput);
+            if (isComparisonMode) formatEditor(textInput2);
+            if (isSegmentationMode) document.querySelectorAll('#segmentationGrid .text-input').forEach(formatEditor);
+            forceFormat = false; if(!isSegmentationMode) updateStats();
+        }
+
+        function renderTagUI() {
+            const list = document.getElementById('tagsList'); list.innerHTML = '';
+            tagRegistry.filter(t => t.inDocument).forEach(tag => {
+                const item = document.createElement('div');
+                item.className = "grid gap-2 items-center px-1.5 py-1 bg-gray-50 border border-gray-200 rounded";
+                item.style.gridTemplateColumns = "20px minmax(80px, 1fr) minmax(120px, 1.5fr) 60px 110px minmax(150px, 2fr)";
+                let visualName = tag.isPair ? `${escapeHtml(tag.openText.replace(/^<|>$|^\[|\]$|^\{|\}$/g, ''))} ... ${escapeHtml(tag.closeText.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, ''))}` : escapeHtml(tag.text.replace(/^<|>$|^\[|\]$|^\{|\}$/g, '').replace(/^\//, ''));
+                item.innerHTML = `
+                    <input type="checkbox" ${tag.enabled ? 'checked' : ''} onchange="updateTagProp('${tag.id}', 'enabled', this.checked)" class="cursor-pointer">
+                    <div class="font-mono text-[0.85em] font-bold text-theme-blue truncate" title="${escapeHtml(tag.isPair ? `${tag.openText} ... ${tag.closeText}` : tag.text)}">${visualName}</div>
+                    <div id="occ-${tag.id}" class="text-[0.65em] text-gray-500 uppercase font-semibold leading-tight break-words" title=""></div>
+                    <div>
+                        ${tag.isPair ? `<button onclick="splitTagPair('${tag.id}')" class="text-[0.7rem] text-gray-500 hover-theme-blue border border-gray-300 px-1.5 py-1 rounded w-full">Split</button>` : ''}
+                        ${tag.splitPartner ? `<button onclick="rejoinTagPair('${tag.id}', '${tag.splitPartner}')" class="text-[0.7rem] text-gray-500 hover-theme-blue border border-gray-300 px-1.5 py-1 rounded w-full">Rejoin</button>` : ''}
+                    </div>
+                    <select onchange="updateTagProp('${tag.id}', 'displayMode', this.value)" class="p-1 border rounded bg-white border-gray-300 outline-none text-[0.7rem] w-full">
+                        <option value="tag" ${tag.displayMode === 'tag' ? 'selected' : ''}>Tag</option>
+                        ${tag.canFormat ? `<option value="format" ${tag.displayMode === 'format' ? 'selected' : ''}>Format</option>` : ''}
+                        ${!tag.isPair ? `<option value="placeholder" ${tag.displayMode === 'placeholder' ? 'selected' : ''}>Placeholder</option>` : ''}
+                        <option value="custom" ${tag.displayMode === 'custom' ? 'selected' : ''}>Custom HTML</option>
+                        <option value="hide" ${tag.displayMode === 'hide' ? 'selected' : ''}>Hide</option>
+                    </select>
+                    <div class="flex items-center">
+                        ${tag.displayMode === 'placeholder' ? `<input type="text" value="${escapeHtml(tag.placeholderText)}" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" oninput="updateTagProp('${tag.id}', 'placeholderText', this.value, true)" class="selectable-input p-1.5 border border-gray-300 rounded text-sm w-full cursor-text text-gray-800" placeholder="Text...">` : ''}
+                        ${tag.displayMode === 'custom' ? `<input type="text" value="${escapeHtml(tag.customHtml)}" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" oninput="updateTagProp('${tag.id}', 'customHtml', this.value, true)" class="selectable-input p-1.5 border border-gray-300 rounded text-sm font-mono w-full cursor-text text-gray-800" placeholder="HTML...">` : ''}
+                    </div>
+                `; list.appendChild(item);
+            }); updateStats();
+        }
+
+        function updateTagProp(id, prop, val, skipRender = false) {
+            const t = tagRegistry.find(x => x.id === id);
+            if (t) { t[prop] = val; if (!skipRender) renderTagUI(); setTimeout(reformatAll, 0); }
+        }
+
+        function splitTagPair(id) {
+            const tIdx = tagRegistry.findIndex(x => x.id === id);
+            if (tIdx > -1) {
+                const t = tagRegistry[tIdx]; tagRegistry.splice(tIdx, 1);
+                const openId = crypto.randomUUID(); const closeId = crypto.randomUUID();
+                tagRegistry.push({ id: openId, isPair: false, text: t.openText, displayMode: t.displayMode, placeholderText: t.placeholderText, customHtml: t.customHtml, enabled: t.enabled, canFormat: checkCanFormat(t.openText, false), inDocument: t.inDocument, splitPartner: closeId });
+                tagRegistry.push({ id: closeId, isPair: false, text: t.closeText, displayMode: t.displayMode, placeholderText: t.placeholderText, customHtml: t.customHtml, enabled: t.enabled, canFormat: checkCanFormat(t.closeText, false), inDocument: t.inDocument, splitPartner: openId });
+                sortTagsByAppearance(); renderTagUI(); setTimeout(reformatAll, 0);
+            }
+        }
+
+        function rejoinTagPair(id1, id2) {
+            const t1Idx = tagRegistry.findIndex(x => x.id === id1); const t2Idx = tagRegistry.findIndex(x => x.id === id2);
+            if (t1Idx > -1 && t2Idx > -1) {
+                const t1 = tagRegistry[t1Idx]; const t2 = tagRegistry[t2Idx];
+                let openText = t1.appearanceIndex <= t2.appearanceIndex ? t1.text : t2.text; let closeText = t1.appearanceIndex <= t2.appearanceIndex ? t2.text : t1.text;
+                tagRegistry = tagRegistry.filter(x => x.id !== id1 && x.id !== id2);
+                tagRegistry.push({ id: crypto.randomUUID(), isPair: true, openText, closeText, displayMode: t1.displayMode, placeholderText: t1.placeholderText, customHtml: t1.customHtml, enabled: t1.enabled, canFormat: checkCanFormat(openText, true), inDocument: true });
+                sortTagsByAppearance(); renderTagUI(); setTimeout(reformatAll, 0);
+            }
+        }
+
+        function addManualTag() {
+            const val = document.getElementById('manualTagInput').value.trim(); if (!val) return;
+            let existing = tagRegistry.find(t => t.text === val || t.openText === val || t.closeText === val);
+            if (existing) existing.inDocument = true;
+            else tagRegistry.push({ id: crypto.randomUUID(), isPair: false, text: val, displayMode: 'tag', placeholderText: '', customHtml: '', enabled: true, canFormat: checkCanFormat(val, false), inDocument: true });
+            document.getElementById('manualTagInput').value = ''; sortTagsByAppearance(); renderTagUI(); setTimeout(reformatAll, 0);
+        }
+
+        function escapeHtml(unsafe) { return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+
+        function serializeSelectionToRawText(sel) {
+            if (sel.isCollapsed) return ''; const fragment = sel.getRangeAt(0).cloneContents(); let raw = '';
+            const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_ALL, null, false); let node;
+            while(node = walker.nextNode()) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.hasAttribute('data-tag-raw')) { raw += node.getAttribute('data-tag-raw'); } 
+                    else if (node.tagName === 'BR' && !node.classList.contains('placeholder-br') && !node.classList.contains('diff-deleted-br')) { raw += '\n'; }
+                    else if (node.tagName === 'DIV' || node.tagName === 'P') { if (raw.length > 0 && !raw.endsWith('\n')) raw += '\n'; }
+                } else if (node.nodeType === Node.TEXT_NODE) {
+                    let parent = node.parentNode; let skip = false;
+                    while (parent) {
+                        if (parent.nodeType === Node.ELEMENT_NODE && (parent.hasAttribute('data-tag-raw') || parent.classList.contains('vis-pilcrow') || parent.classList.contains('format-wrapper-active') || parent.classList.contains('app-tag-hidden'))) { skip = true; break; }
+                        parent = parent.parentNode;
+                    }
+                    if (!skip) raw += node.nodeValue;
+                }
+            } return raw;
+        }
+
+        // ================= Interactivity & Modes =================
+        function setDirection(dir) {
+            currentDirectionMode = dir;
+            document.querySelectorAll('.toggle-container button[id^="btn-"]').forEach(b => b.classList.remove('is-active-btn'));
+            const btn = document.getElementById(`btn-${dir}`); if (btn) btn.classList.add('is-active-btn');
+            const updateEditors = (editors) => {
+                editors.forEach(editor => {
+                    if (dir === 'auto') { editor.setAttribute('dir', 'auto'); editor.style.textAlign = 'start'; editor.style.unicodeBidi = 'plaintext'; } 
+                    else { editor.setAttribute('dir', dir); editor.style.textAlign = dir === 'rtl' ? 'right' : 'left'; editor.style.unicodeBidi = 'normal'; }
+                    editor.querySelectorAll('.editor-block').forEach(b => {
+                        if (dir === 'auto') { b.setAttribute('dir', 'auto'); b.style.textAlign = 'start'; } 
+                        else { b.setAttribute('dir', dir); b.style.textAlign = dir === 'rtl' ? 'right' : 'left'; }
+                    });
+                });
+            };
+            updateEditors([textInput, textInput2]);
+            if (isSegmentationMode) updateEditors(Array.from(document.querySelectorAll('#segmentationGrid .text-input')));
+            saveHistoryState();
+        }
+
+        function toggleVisualizationMode() { 
+            isVisualizationActive = !isVisualizationActive; document.getElementById('vizToggleButton').classList.toggle('is-active-btn'); 
+            const toggleVis = (editor) => { if (isVisualizationActive) editor.classList.add('show-vis'); else editor.classList.remove('show-vis'); forceFormat = true; formatEditor(editor); forceFormat = false; }
+            toggleVis(textInput); if(isComparisonMode) toggleVis(textInput2);
+            if(isSegmentationMode) document.querySelectorAll('#segmentationGrid .text-input').forEach(toggleVis);
+        }
+
+        function toggleComparisonMode() {
+            if (!isComparisonMode && isSegmentationMode) { showModal("Compare mode is not available during Segmentation. Would you like to disable Segmentation and activate Compare Mode?", () => { executeSegmentationToggle(); executeComparisonToggle(); }); return; }
+            executeComparisonToggle();
+        }
+
+        function executeComparisonToggle() {
+            isComparisonMode = !isComparisonMode; 
+            document.getElementById('comparisonBtn').classList.toggle('is-active-btn'); rightCol.classList.toggle('hidden'); document.getElementById('diffToggleButton').classList.toggle('hidden'); document.getElementById('labelLeft').classList.toggle('hidden'); frTarget.classList.toggle('hidden'); editorGrid.classList.toggle('comparison-active');
+            if (isComparisonMode) { setRawText(textInput2, getRawText(textInput).replace(/\uE000|\uE001/g, '')); activeInput = textInput2; } 
+            else { setRawText(textInput, getRawText(textInput2).replace(/\uE000|\uE001/g, '')); activeInput = textInput; if (isDiffActive) toggleDiffMode(true); }
+            if (isTagsMode) renderTagUI(); updateStats();
+            saveHistoryState();
+        }
+
+        function updateDiff(rawOrigWithCarets = null, rawModWithCarets = null) {
+            if (!isComparisonMode || !isDiffActive) return;
+            
+            let origStr = rawOrigWithCarets !== null ? rawOrigWithCarets : getRawText(textInput);
+            let modStr = rawModWithCarets !== null ? rawModWithCarets : getRawText(textInput2);
+
+            const diffs = dmp.diff_main(origStr, modStr); 
+            dmp.diff_cleanupSemantic(diffs);
+
+            textInput.innerHTML = '';
+            let curBlockOrig = document.createElement('div'); curBlockOrig.className = 'editor-block';
+            if (currentDirectionMode !== 'auto') { curBlockOrig.setAttribute('dir', currentDirectionMode); curBlockOrig.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; } else { curBlockOrig.setAttribute('dir', 'auto'); curBlockOrig.style.textAlign = 'start'; }
+            textInput.appendChild(curBlockOrig);
+            
+            textInput2.innerHTML = '';
+            let curBlockMod = document.createElement('div'); curBlockMod.className = 'editor-block';
+            if (currentDirectionMode !== 'auto') { curBlockMod.setAttribute('dir', currentDirectionMode); curBlockMod.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; } else { curBlockMod.setAttribute('dir', 'auto'); curBlockMod.style.textAlign = 'start'; }
+            textInput2.appendChild(curBlockMod);
+            
+            diffs.forEach(part => {
+                const op = part[0];
+                const lines = part[1].split('\n');
+                
+                if (op !== 1) {
+                    lines.forEach((line, i) => {
+                        if (i > 0) {
+                            if (op === -1) {
+                                const p = document.createElement('span'); p.className = 'vis-pilcrow bg-red-200 line-through decoration-red-500 diff-del'; p.style.setProperty('color', '#b91c1c', 'important'); p.contentEditable = 'false'; p.textContent = '¶'; curBlockOrig.appendChild(p);
+                                const br = document.createElement('br'); br.className = 'diff-deleted-br'; curBlockOrig.appendChild(br);
+                            } else {
+                                curBlockOrig = document.createElement('div'); curBlockOrig.className = 'editor-block';
+                                if (currentDirectionMode !== 'auto') { curBlockOrig.setAttribute('dir', currentDirectionMode); curBlockOrig.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; } else { curBlockOrig.setAttribute('dir', 'auto'); curBlockOrig.style.textAlign = 'start'; }
+                                textInput.appendChild(curBlockOrig);
+                            }
+                        }
+                        if (line) {
+                            line.split(/(\uE000|\uE001)/).forEach(seg => {
+                                if (seg === '\uE000') { const c = document.createElement('span'); c.id = 'caret-start'; curBlockOrig.appendChild(c); } 
+                                else if (seg === '\uE001') { const c = document.createElement('span'); c.id = 'caret-end'; curBlockOrig.appendChild(c); } 
+                                else if (seg) {
+                                    if (op === 0) curBlockOrig.appendChild(document.createTextNode(seg));
+                                    else { const span = document.createElement('span'); span.className = 'diff-del-text'; span.appendChild(document.createTextNode(seg)); curBlockOrig.appendChild(span); }
+                                }
+                            });
+                        }
+                    });
+                }
+                
+                if (op !== -1) {
+                    lines.forEach((line, i) => {
+                        if (i > 0) {
+                            if (op === 1) {
+                                const p = document.createElement('span'); p.className = 'vis-pilcrow bg-green-200 text-green-900 diff-add'; p.style.setProperty('color', '#15803d', 'important'); p.contentEditable = 'false'; p.textContent = '¶'; curBlockMod.appendChild(p);
+                            }
+                            curBlockMod = document.createElement('div'); curBlockMod.className = 'editor-block';
+                            if (currentDirectionMode !== 'auto') { curBlockMod.setAttribute('dir', currentDirectionMode); curBlockMod.style.textAlign = currentDirectionMode === 'rtl' ? 'right' : 'left'; } else { curBlockMod.setAttribute('dir', 'auto'); curBlockMod.style.textAlign = 'start'; }
+                            textInput2.appendChild(curBlockMod);
+                        }
+                        if (line) {
+                            line.split(/(\uE000|\uE001)/).forEach(seg => {
+                                if (seg === '\uE000') { const c = document.createElement('span'); c.id = 'caret-start'; curBlockMod.appendChild(c); } 
+                                else if (seg === '\uE001') { const c = document.createElement('span'); c.id = 'caret-end'; curBlockMod.appendChild(c); } 
+                                else if (seg) {
+                                    if (op === 0) curBlockMod.appendChild(document.createTextNode(seg));
+                                    else { const span = document.createElement('span'); span.className = 'diff-add-text'; span.appendChild(document.createTextNode(seg)); curBlockMod.appendChild(span); }
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            textInput.querySelectorAll('.editor-block').forEach(b => { if (b.textContent === '' && !b.querySelector('br')) { const br = document.createElement('br'); br.className = 'placeholder-br'; b.appendChild(br); } });
+            textInput2.querySelectorAll('.editor-block').forEach(b => { if (b.textContent === '' && !b.querySelector('br')) { const br = document.createElement('br'); br.className = 'placeholder-br'; b.appendChild(br); } });
+            
+            forceFormat = true; formatEditor(textInput); formatEditor(textInput2); forceFormat = false;
+        }
+
+        function toggleDiffMode(forceDisable = false) { 
+            if (forceDisable && !isDiffActive) return;
+            let hasCaret1 = false; let hasCaret2 = false; let rawOrig = null; let rawMod = null;
+            if (!forceDisable) {
+                if (activeInput === textInput) { hasCaret1 = saveCaret(textInput); rawOrig = getRawText(textInput); }
+                else if (activeInput === textInput2) { hasCaret2 = saveCaret(textInput2); rawMod = getRawText(textInput2); }
+            }
+            isDiffActive = forceDisable ? false : !isDiffActive; 
+            if (isDiffActive) document.getElementById('diffToggleButton').classList.add('is-active-btn'); else document.getElementById('diffToggleButton').classList.remove('is-active-btn');
+            
+            if (isDiffActive) {
+                document.getElementById('diffToggleButton').classList.remove('hidden');
+                updateDiff(hasCaret1 ? rawOrig : null, hasCaret2 ? rawMod : null);
+            } else if (!forceDisable) {
+                const finalOrig = getRawText(textInput);
+                const finalMod = getRawText(textInput2);
+                setRawText(textInput, finalOrig);
+                setRawText(textInput2, finalMod);
+            }
+            if (!forceDisable && (hasCaret1 || hasCaret2)) restoreCaret();
+        }
+
+        // ================= Segmentation Architecture =================
+        function toggleSegmentationMode() {
+            if (!isSegmentationMode && isComparisonMode) { showModal("Segmentation mode is not available during Compare mode. Would you like to disable Compare Mode and activate Segmentation?", () => { executeComparisonToggle(); executeSegmentationToggle(); }); return; }
+            executeSegmentationToggle();
+        }
+
+        function executeSegmentationToggle() {
+            isSegmentationMode = !isSegmentationMode;
+            document.getElementById('segmentationBtn').classList.toggle('is-active-btn'); document.getElementById('segmentationToolbar').classList.toggle('hidden');
+            if (isSegmentationMode) {
+                document.getElementById('editorGrid').classList.add('hidden'); segmentationGrid.classList.remove('hidden');
+                parseSegments(getRawText(textInput).replace(/\uE000|\uE001/g, ''), segmentationRule); renderSegments();
+            } else {
+                document.getElementById('editorGrid').classList.remove('hidden'); segmentationGrid.classList.add('hidden');
+                let reconstructed = ''; segments.forEach((seg) => { reconstructed += seg.text + seg.trailingSpace; });
+                setRawText(textInput, reconstructed); activeInput = textInput; updateStats();
+            }
+            if (isTagsMode) renderTagUI();
+            saveHistoryState();
+        }
+
+        function setSegmentationRule(rule) {
+            document.getElementById('segmentRulesMenu').classList.add('hidden');
+            if (segmentationRule === rule) return; segmentationRule = rule; updateRuleHighlight();
+            parseSegments(segments.map(seg => seg.text + seg.trailingSpace).join(''), segmentationRule); renderSegments();
+            saveHistoryState();
+        }
+
+        function updateRuleHighlight() {
+            const btnPara = document.getElementById('rule-btn-paragraph');
+            const btnSent = document.getElementById('rule-btn-sentence');
+            if (!btnPara || !btnSent) return;
+            if (segmentationRule === 'paragraph') { btnPara.classList.add('active-rule'); btnSent.classList.remove('active-rule'); } 
+            else { btnSent.classList.add('active-rule'); btnPara.classList.remove('active-rule'); }
+        }
+
+        function parseSegments(rawText, rule) {
+            segments = []; let currentText = ''; let currentTrailing = ''; let i = 0;
+            while (i < rawText.length) {
+                let char = rawText[i];
+                if (rule === 'paragraph') {
+                    if (char === '\n') { currentTrailing = char; while (i + 1 < rawText.length && rawText[i+1] === '\n') currentTrailing += rawText[++i]; segments.push({ id: crypto.randomUUID(), text: currentText, trailingSpace: currentTrailing }); currentText = ''; currentTrailing = ''; } else currentText += char;
+                } else {
+                    if (char === '\n') { currentTrailing = char; while (i + 1 < rawText.length && rawText[i+1] === '\n') currentTrailing += rawText[++i]; segments.push({ id: crypto.randomUUID(), text: currentText, trailingSpace: currentTrailing }); currentText = ''; currentTrailing = ''; } 
+                    else if (/[.!?]/.test(char)) {
+                        currentText += char; let nextChar = rawText[i+1]; let peekIdx = i + 1;
+                        while (nextChar && /[.!?]/.test(nextChar)) { currentText += nextChar; nextChar = rawText[++peekIdx]; }
+                        i = peekIdx - 1; nextChar = rawText[i+1];
+                        if (nextChar === undefined || !/[\p{L}\p{N}]/u.test(nextChar)) { currentTrailing = ''; while (i + 1 < rawText.length && /[^\S\n]/.test(rawText[i+1])) currentTrailing += rawText[++i]; segments.push({ id: crypto.randomUUID(), text: currentText, trailingSpace: currentTrailing }); currentText = ''; currentTrailing = ''; }
+                    } else currentText += char;
+                } i++;
+            }
+            if (currentText || currentTrailing || segments.length === 0) segments.push({ id: crypto.randomUUID(), text: currentText, trailingSpace: currentTrailing });
+        }
+
+        function renderSegments() {
+            segmentationGrid.innerHTML = '';
+            const getS = (raw) => { const cleanNoCtrl = raw.replace(/[\u200E\u200F\u202A-\u202E]/g, ''); return { total: raw.length, noCtrl: cleanNoCtrl.length, words: raw.trim() === '' ? 0 : raw.trim().split(/\s+/).length }; };
+            segments.forEach((seg, i) => {
+                const segS = getS(seg.text); const wrapper = document.createElement('div');
+                wrapper.className = "flex flex-row gap-1.5 bg-white border border-gray-200 rounded-lg p-1.5 shadow-sm items-stretch transition-all";
+                wrapper.innerHTML = `
+                    <div class="flex flex-col items-center w-5 flex-shrink-0 text-gray-400 mt-1">
+                        <span class="text-[0.65rem] font-bold">#${i + 1}</span>
+                        <button onclick="moveSegment(${i}, -1)" class="hover:text-blue-500 transition-colors" title="Move Up"><span class="material-symbols-outlined text-sm leading-none">arrow_upward</span></button>
+                        <button onclick="moveSegment(${i}, 1)" class="hover:text-blue-500 transition-colors" title="Move Down"><span class="material-symbols-outlined text-sm leading-none">arrow_downward</span></button>
+                    </div>
+                    <div class="flex-grow flex flex-col min-w-0 h-full">
+                        <div id="seg-input-${i}" class="text-input ${isVisualizationActive ? 'show-vis' : ''} !p-0.5 min-h-[1.5rem]" contenteditable="true" dir="${currentDirectionMode}"></div>
+                        <div class="text-[0.65rem] text-gray-400 flex gap-4 font-medium px-1 justify-end uppercase tracking-wider mt-auto pt-1">
+                            <span>Chars: <span id="seg-chars-${i}">${segS.total}</span></span>
+                            <span>Excl. ctrl.: <span id="seg-noctrl-${i}">${segS.noCtrl}</span></span>
+                            <span>Words: <span id="seg-words-${i}">${segS.words}</span></span>
+                        </div>
+                    </div>`;
+                segmentationGrid.appendChild(wrapper); const input = document.getElementById(`seg-input-${i}`); setRawText(input, seg.text);
+                input.addEventListener('focus', () => { activeInput = input; activeSegmentIndex = i; });
+                input.addEventListener('keydown', handleKeydown);
+                input.addEventListener('input', () => {
+                    formatEditor(input); segments[i].text = getRawText(input); const cleanNoCtrl = segments[i].text.replace(/[\u200E\u200F\u202A-\u202E]/g, '');
+                    document.getElementById(`seg-chars-${i}`).textContent = segments[i].text.length; document.getElementById(`seg-noctrl-${i}`).textContent = cleanNoCtrl.length; document.getElementById(`seg-words-${i}`).textContent = segments[i].text.trim() === '' ? 0 : segments[i].text.trim().split(/\s+/).length;
+                    clearTimeout(historyTimeout); historyTimeout = setTimeout(saveHistoryState, 400);
+                });
+            });
+        }
+
+        function moveSegment(index, direction) {
+            if (index + direction < 0 || index + direction >= segments.length) return;
+            const target = index + direction; const temp = segments[index]; segments[index] = segments[target]; segments[target] = temp;
+            renderSegments(); setTimeout(() => { const targetInput = document.getElementById(`seg-input-${target}`); if(targetInput) targetInput.focus(); saveHistoryState(); }, 50);
+        }
+
+        function splitActiveSegment() {
+            if (activeSegmentIndex === -1 || activeInput.id.indexOf('seg-input-') === -1) { showModal("Please click inside a segment where you want to split it."); return; }
+            const index = activeSegmentIndex; const input = document.getElementById(`seg-input-${index}`);
+            if (!saveCaret(input)) { showModal("Please place your cursor inside the segment where you want to split it."); return; }
+            let raw = getRawText(input); let caretIdx = raw.indexOf('\uE000'); if (caretIdx === -1) return; 
+            let before = raw.substring(0, caretIdx); let after = raw.substring(raw.indexOf('\uE001') + 1);
+            let spaceMatchBefore = before.match(/[\s\xA0\t\n]+$/); let spaceMatchAfter = after.match(/^[\s\xA0\t\n]+/);
+            let removedSpaces = (spaceMatchBefore ? spaceMatchBefore[0] : '') + (spaceMatchAfter ? spaceMatchAfter[0] : '');
+            segments.splice(index, 1, { id: crypto.randomUUID(), text: before.replace(/[\s\xA0\t\n]+$/, ''), trailingSpace: removedSpaces }, { id: crypto.randomUUID(), text: after.replace(/^[\s\xA0\t\n]+/, ''), trailingSpace: segments[index].trailingSpace });
+            renderSegments(); setTimeout(() => { const nextInput = document.getElementById(`seg-input-${index + 1}`); if (nextInput) nextInput.focus(); saveHistoryState(); }, 50);
+        }
+
+        function mergeActiveSegment() {
+            if (activeSegmentIndex === -1 || activeInput.id.indexOf('seg-input-') === -1) { showModal("Please click inside a segment to merge it."); return; }
+            const index = activeSegmentIndex; if (index >= segments.length - 1) { showModal("This is the last segment; there is nothing below to merge with."); return; }
+            let s1 = segments[index]; let s2 = segments[index+1];
+            s1.text = s1.text + s1.trailingSpace + '\uE000\uE001' + s2.text; s1.trailingSpace = s2.trailingSpace;
+            segments.splice(index + 1, 1); renderSegments(); setTimeout(() => { const mergedInput = document.getElementById(`seg-input-${index}`); if (mergedInput) { mergedInput.focus(); restoreCaret(); } saveHistoryState(); }, 50);
+        }
+
+        function alphabetizeSegments() {
+            if (segments.length === 0) return; let spaces = segments.map(s => s.trailingSpace);
+            const startsWithHebrew = (str) => /^[\u0590-\u05FF]/.test(str);
+            segments.sort((a, b) => { const aHebrew = startsWithHebrew(a.text); const bHebrew = startsWithHebrew(b.text); if (!aHebrew && bHebrew) return -1; if (aHebrew && !bHebrew) return 1; return a.text.localeCompare(b.text, aHebrew ? 'he' : 'en'); });
+            segments.forEach((s, i) => s.trailingSpace = spaces[i]); renderSegments(); saveHistoryState();
+        }
+
+        function removeDuplicateSegments() {
+            if (segments.length === 0) return; const uniqueTexts = new Set(); const newSegments = [];
+            for (let i = 0; i < segments.length; i++) { const plainText = segments[i].text.replace(/\uE000|\uE001/g, ''); if (!uniqueTexts.has(plainText)) { uniqueTexts.add(plainText); newSegments.push(segments[i]); } }
+            if (newSegments.length !== segments.length) { segments = newSegments; renderSegments(); saveHistoryState(); } else showModal("No duplicate segments found.");
+        }
+
+        // ================= Interactivity Tools =================
+        function insertChar(char) {
+            document.getElementById('insertDropdownMenu').classList.add('hidden'); const sel = window.getSelection(); if (!sel) return;
+            let range; if (sel.rangeCount > 0) range = sel.getRangeAt(0);
+            if (!range || !activeInput.contains(range.commonAncestorContainer)) { activeInput.focus(); if (sel.rangeCount > 0) range = sel.getRangeAt(0); if (!range || !activeInput.contains(range.commonAncestorContainer)) { range = document.createRange(); range.selectNodeContents(activeInput); range.collapse(false); } }
+            const textNode = document.createTextNode(char); range.deleteContents(); range.insertNode(textNode); range.setStartAfter(textNode); range.collapse(true); sel.removeAllRanges(); sel.addRange(range);
+            if (isComparisonMode && isDiffActive) {
+                saveCaret(activeInput);
+                if (activeInput === textInput) updateDiff(getRawText(textInput), null);
+                else updateDiff(null, getRawText(textInput2));
+                restoreCaret();
+            } else { formatEditor(activeInput); if (isSegmentationMode && activeSegmentIndex > -1) segments[activeSegmentIndex].text = getRawText(activeInput); }
+            if(!isSegmentationMode) updateStats();
+            saveHistoryState();
+        }
+
+        function handleAlphabetize() {
+            const targetEditor = isComparisonMode ? textInput2 : activeInput; let textToProcess = '';
+            if (isComparisonMode && isDiffActive && targetEditor === textInput2) textToProcess = getRawText(textInput2); else if (isSegmentationMode && activeSegmentIndex > -1) textToProcess = getRawText(targetEditor); else textToProcess = getRawText(targetEditor);
+            if (!textToProcess.trim()) return;
+            let cleanedText = textToProcess.replace(/\s+/g, ' '); let parts = cleanedText.split(','); let items = []; let hasVavAtEnd = false;
+            for (let i = 0; i < parts.length; i++) {
+                let part = parts[i].trim(); if (!part) continue;
+                if (i === parts.length - 1) {
+                    if (part.includes(' ו-')) { let lastSpaceVavIndex = part.lastIndexOf(' ו-'); let beforeVav = part.substring(0, lastSpaceVavIndex).trim(); let afterVav = part.substring(lastSpaceVavIndex + 3).trim(); if (beforeVav) items.push(beforeVav); if (afterVav) { hasVavAtEnd = true; items.push(afterVav); } } 
+                    else if (part.includes(' ו')) { let lastSpaceVavIndex = part.lastIndexOf(' ו'); let beforeVav = part.substring(0, lastSpaceVavIndex).trim(); let afterVav = part.substring(lastSpaceVavIndex + 2).trim(); if (beforeVav) items.push(beforeVav); if (afterVav) { hasVavAtEnd = true; items.push(afterVav); } } 
+                    else if (part.startsWith('ו-') && part.length > 2) { hasVavAtEnd = true; items.push(part.substring(2).trim()); } else if (part.startsWith('ו') && part.length > 1) { hasVavAtEnd = true; items.push(part.substring(1).trim()); } else items.push(part);
+                } else items.push(part);
+            }
+            const hasNoHebrew = (str) => !/[\u0590-\u05FF]/.test(str); const startsWithHebrew = (str) => /^[\u0590-\u05FF]/.test(str);
+            items.sort((a, b) => { const aHebrew = startsWithHebrew(a); const bHebrew = startsWithHebrew(b); if (!aHebrew && bHebrew) return -1; if (aHebrew && !bHebrew) return 1; return a.localeCompare(b, aHebrew ? 'he' : 'en'); });
+            const joinItems = (arr) => { if (arr.length === 0) return ''; let joined = arr[0]; for (let j = 1; j < arr.length; j++) { if (hasNoHebrew(arr[j-1]) && hasNoHebrew(arr[j])) joined += ',\u200F ' + arr[j]; else joined += ', ' + arr[j]; } return joined; };
+            let result = '';
+            if (items.length > 0) { if (items.length === 1) result = items[0]; else { if (hasVavAtEnd) { let lastItem = items.pop(); let joinedRest = joinItems(items); let conjunction = startsWithHebrew(lastItem) ? ' ו' : ' ו-'; result = joinedRest + conjunction + lastItem; } else result = joinItems(items); } }
+            if (isComparisonMode && isDiffActive && targetEditor === textInput2) { setRawText(textInput2, result); updateDiff(null, getRawText(textInput2)); } 
+            else { setRawText(targetEditor, result); if (isSegmentationMode && activeSegmentIndex > -1) segments[activeSegmentIndex].text = getRawText(targetEditor); }
+            if(!isSegmentationMode) updateStats();
+            saveHistoryState();
+        }
+
+        function handleSearchChange() { forceFormat = true; formatEditor(textInput); if (isComparisonMode) formatEditor(textInput2); if (isSegmentationMode) document.querySelectorAll('#segmentationGrid .text-input').forEach(formatEditor); forceFormat = false; if(!isSegmentationMode) updateStats(); }
+
+        function updateStats() {
+            try {
+                const getS = (raw) => { const cleanNoCtrl = raw.replace(/[\u200E\u200F\u202A-\u202E]/g, ''); return { total: raw.length, noCtrl: cleanNoCtrl.length, words: raw.trim() === '' ? 0 : raw.trim().split(/\s+/).length }; };
+                const rawL = getRawText(textInput); const rawR = isComparisonMode ? getRawText(textInput2) : null; const sL = getS(rawL); const sR = isComparisonMode ? getS(rawR) : null;
+                statsBar.innerHTML = `
+                    <div class="stat-group"><b>${isComparisonMode ? 'ORIGINAL:' : 'DOCUMENT:'}</b><div class="stat-item">Character count: <span class="stat-value">${sL.total}</span></div><div class="stat-item">Excluding control chars: <span class="stat-value">${sL.noCtrl}</span></div><div class="stat-item">Word count: <span class="stat-value">${sL.words}</span></div></div>
+                    ${sR ? `<div class="stat-group"><b>MODIFIED:</b><div class="stat-item">Character count: <span class="stat-value">${sR.total}</span></div><div class="stat-item">Excluding control chars: <span class="stat-value">${sR.noCtrl}</span></div><div class="stat-item">Word count: <span class="stat-value">${sR.words}</span></div></div>` : ''}
+                `;
+                let matchCountText = "0 matches"; const val = document.getElementById('findInput').value;
+                if (val) {
+                    let regex; try { regex = document.getElementById('regexToggle').checked ? new RegExp(val, 'gi') : new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); } catch(e) {}
+                    if (regex) {
+                        let count = 0;
+                        if (isSegmentationMode) segments.forEach(s => count += Array.from(s.text.matchAll(regex)).length);
+                        else { const target = isComparisonMode ? frTarget.value : 'original'; if (target === 'both' || target === 'original') count += Array.from(rawL.matchAll(regex)).length; if (isComparisonMode && (target === 'both' || target === 'modified')) count += Array.from(rawR.matchAll(regex)).length; }
+                        matchCountText = `${count} matches`;
+                    }
+                }
+                document.getElementById('matchCounter').textContent = matchCountText;
+                
+                if (isTagsMode) {
+                    let txt1 = isSegmentationMode ? '' : getRawText(textInput); let txt2 = isComparisonMode && !isSegmentationMode ? getRawText(textInput2) : '';
+                    tagRegistry.forEach(tag => {
+                        let occurrenceStr = '';
+                        if (isSegmentationMode) {
+                            let foundSegs = []; segments.forEach((seg, idx) => { if (tag.isPair && (seg.text.includes(tag.openText) || seg.text.includes(tag.closeText))) foundSegs.push(idx+1); else if (!tag.isPair && seg.text.includes(tag.text)) foundSegs.push(idx+1); });
+                            if (foundSegs.length > 0) occurrenceStr = `Segment(s): ${foundSegs.join(', ')}`;
+                        } else if (isComparisonMode) {
+                            let inOrig = tag.isPair ? (txt1.includes(tag.openText) || txt1.includes(tag.closeText)) : txt1.includes(tag.text); let inMod = tag.isPair ? (txt2.includes(tag.openText) || txt2.includes(tag.closeText)) : txt2.includes(tag.text);
+                            if (inOrig && inMod) occurrenceStr = 'Original & Modified'; else if (inOrig) occurrenceStr = 'Original'; else if (inMod) occurrenceStr = 'Modified';
+                        }
+                        const occEl = document.getElementById('occ-' + tag.id); if (occEl) { occEl.textContent = occurrenceStr; occEl.title = occurrenceStr; }
+                    });
+                }
+            } catch(e) { console.warn(e); }
+        }
+
+        function findNext() { const findStr = document.getElementById('findInput').value; if (findStr) window.find(findStr, false, false, true, false, false, false); }
+        function replaceNext() {
+            const findStr = document.getElementById('findInput').value; const replaceStr = document.getElementById('replaceInput').value; if (!findStr) return;
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0 && !sel.isCollapsed) {
+                const selectedText = sel.toString(); const isRegex = document.getElementById('regexToggle').checked; let isMatch = false;
+                if (isRegex) { try { const rx = new RegExp('^' + findStr + '$', 'i'); isMatch = rx.test(selectedText); } catch(e) {} } else isMatch = selectedText.toLowerCase() === findStr.toLowerCase();
+                if (isMatch) {
+                    let activeEd = null; document.querySelectorAll('.text-input').forEach(ed => { if (ed.contains(sel.anchorNode)) activeEd = ed; });
+                    if (activeEd) {
+                        document.execCommand('insertText', false, replaceStr);
+                        if (isComparisonMode && isDiffActive) {
+                            saveCaret(activeEd);
+                            if (activeEd === textInput) updateDiff(getRawText(textInput), null); else updateDiff(null, getRawText(textInput2));
+                            restoreCaret();
+                        }
+                        else { formatEditor(activeEd); }
+                        if (isSegmentationMode) { const match = activeEd.id.match(/seg-input-(\d+)/); if (match) segments[parseInt(match[1])].text = getRawText(activeEd); }
+                        updateStats();
+                        saveHistoryState();
+                    }
+                }
+            } findNext();
+        }
+
+        function replaceAll() {
+            const findStr = document.getElementById('findInput').value; const replaceStr = document.getElementById('replaceInput').value; if (!findStr) return;
+            const isRegex = document.getElementById('regexToggle').checked; let regex;
+            try { regex = isRegex ? new RegExp(findStr, 'g') : new RegExp(findStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'); } catch(e) { return; }
+            if (isSegmentationMode) { segments.forEach((seg, i) => { const newText = seg.text.replace(regex, replaceStr); if (newText !== seg.text) { seg.text = newText; const input = document.getElementById(`seg-input-${i}`); if (input) setRawText(input, newText); } }); } 
+            else {
+                const target = isComparisonMode ? frTarget.value : 'original';
+                if (target === 'both' || target === 'original') { const raw = getRawText(textInput); const newText = raw.replace(regex, replaceStr); if (newText !== raw) setRawText(textInput, newText); }
+                if (isComparisonMode && (target === 'both' || target === 'modified')) {
+                    const raw = getRawText(textInput2); const newText = raw.replace(regex, replaceStr); if (newText !== raw) setRawText(textInput2, newText);
+                    if (isDiffActive) updateDiff(null, getRawText(textInput2)); 
+                }
+            }
+            if(!isSegmentationMode) updateStats();
+            saveHistoryState();
+        }
+        
+        function saveText() { 
+            let rawText = ''; if (isSegmentationMode) rawText = segments.map(s => s.text + s.trailingSpace).join(''); else rawText = isComparisonMode && activeInput === textInput2 ? getRawText(textInput2) : getRawText(activeInput);
+            const b = new Blob([rawText], {type: 'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'editor_export.txt'; a.click(); 
         }
         function openFile() { document.getElementById('fileInput').click(); }
 
-        // Init
+        // ================= Event Listeners =================
+        function handleKeydown(e) {
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0; const cmd = isMac ? e.metaKey : e.ctrlKey; activeInput = e.currentTarget;
+            if (e.key === 'Tab') { e.preventDefault(); insertChar('\t'); return; }
+            if (cmd) { 
+                if (e.code === 'BracketRight') { e.preventDefault(); insertChar(e.shiftKey ? '\u202B' : '\u200F'); return; } 
+                else if (e.code === 'BracketLeft') { e.preventDefault(); insertChar(e.shiftKey ? '\u202A' : '\u200E'); return; } 
+                else if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) customRedo(); else customUndo(); return; }
+                else if (e.key.toLowerCase() === 'y') { e.preventDefault(); customRedo(); return; }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const isInput = e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const cmd = isMac ? e.metaKey : e.ctrlKey;
+            
+            if (cmd && e.key.toLowerCase() === 'z') {
+                if (isInput) return; // let native input undo work
+                e.preventDefault();
+                if (e.shiftKey) customRedo(); else customUndo();
+            }
+            if (cmd && e.key.toLowerCase() === 'y') {
+                if (isInput) return;
+                e.preventDefault();
+                customRedo();
+            }
+        });
+
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            
+            document.querySelectorAll('.is-selected').forEach(el => el.classList.remove('is-selected'));
+            
+            const sel = window.getSelection(); 
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+            
+            const range = sel.getRangeAt(0);
+            let container = range.commonAncestorContainer; 
+            if (container.nodeType === Node.TEXT_NODE) container = container.parentNode;
+            
+            let activeEd = container.closest ? container.closest('.text-input') : null;
+            if (!activeEd) return;
+
+            const elements = activeEd.querySelectorAll('.vis-ctrl, .app-tag, .app-tag-ph, .app-tag-custom, .vis-pilcrow, .vis-char');
+            elements.forEach(node => {
+                if (sel.containsNode(node, true)) {
+                    node.classList.add('is-selected');
+                }
+            });
+            
+            const parentTag = container.closest('.app-tag, .app-tag-ph, .app-tag-custom, .vis-ctrl, .vis-pilcrow');
+            if (parentTag && !parentTag.classList.contains('is-selected')) {
+                parentTag.classList.add('is-selected');
+            }
+        });
+
+        document.addEventListener('paste', (e) => {
+            const sel = window.getSelection(); if (!sel || sel.isCollapsed === undefined) return;
+            let isInsideEditor = textInput.contains(sel.anchorNode) || textInput2.contains(sel.anchorNode);
+            if (!isInsideEditor && isSegmentationMode) document.querySelectorAll('#segmentationGrid .text-input').forEach(inp => { if (inp.contains(sel.anchorNode)) isInsideEditor = true; });
+            if (!isInsideEditor) return;
+            
+            e.preventDefault();
+            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+        });
+
+        document.addEventListener('copy', (e) => {
+            const sel = window.getSelection(); if (!sel || sel.isCollapsed) return;
+            let activeEd = null;
+            if (textInput.contains(sel.anchorNode)) activeEd = textInput;
+            else if (textInput2.contains(sel.anchorNode)) activeEd = textInput2;
+            else if (isSegmentationMode) {
+                document.querySelectorAll('#segmentationGrid .text-input').forEach(inp => { if (inp.contains(sel.anchorNode)) activeEd = inp; });
+            }
+            if (!activeEd) return;
+            
+            e.preventDefault();
+            
+            let copiedText = '';
+            if (saveCaret(activeEd)) {
+                const fullRaw = getRawText(activeEd);
+                restoreCaret();
+                const startIdx = fullRaw.indexOf('\uE000');
+                const endIdx = fullRaw.indexOf('\uE001');
+                if (startIdx !== -1 && endIdx !== -1) {
+                    copiedText = fullRaw.substring(startIdx + 1, endIdx);
+                }
+            }
+            
+            e.clipboardData.setData('text/plain', copiedText); 
+            
+            const clone = sel.getRangeAt(0).cloneContents(); const div = document.createElement('div'); div.appendChild(clone);
+            div.querySelectorAll('.vis-pilcrow, .app-tag-hidden').forEach(el => el.remove());
+            div.querySelectorAll('.vis-char, .vis-ctrl, .search-highlight').forEach(unwrap);
+            e.clipboardData.setData('text/html', div.innerHTML);
+        });
+
+        let _mouseDownTag = null;
+        let _mouseDownX = 0;
+        let _mouseDownY = 0;
+
+        document.addEventListener('dragstart', (e) => {
+            const targetEl = e.target.nodeType === 3 ? e.target.parentNode : e.target;
+            if (!targetEl || typeof targetEl.closest !== 'function') return;
+            const editor = targetEl.closest('.text-input');
+            if (!editor) return;
+            
+            clearTimeout(historyTimeout);
+            saveHistoryState();
+
+            const sel = window.getSelection();
+            let dragText = '';
+
+            window.__draggedSelectionRange = null;
+            window.__draggedTag = null;
+            window.__internalDrop = false;
+
+            if (sel && !sel.isCollapsed && sel.containsNode(targetEl, true)) {
+                dragText = serializeSelectionToRawText(sel);
+                window.__draggedSelectionRange = sel.getRangeAt(0).cloneRange();
+                
+                const clone = sel.getRangeAt(0).cloneContents(); 
+                const div = document.createElement('div'); div.appendChild(clone);
+                div.querySelectorAll('.vis-pilcrow, .app-tag-hidden').forEach(el => el.remove());
+                div.querySelectorAll('.vis-char, .vis-ctrl, .search-highlight').forEach(unwrap);
+                e.dataTransfer.setData('text/html', div.innerHTML);
+            } else {
+                const tag = targetEl.closest('[draggable="true"]');
+                if (tag) {
+                    if (tag.hasAttribute('data-tag-raw')) dragText = tag.getAttribute('data-tag-raw');
+                    else if (tag.classList.contains('vis-ctrl')) dragText = tag.textContent;
+                    
+                    window.__draggedTag = tag;
+                    const clone = tag.cloneNode(true);
+                    const div = document.createElement('div'); div.appendChild(clone);
+                    e.dataTransfer.setData('text/html', div.innerHTML);
+                } else return; 
+            }
+
+            if (dragText) {
+                e.dataTransfer.setData('text/plain', dragText);
+                e.dataTransfer.effectAllowed = 'copyMove';
+            }
+        });
+
+        document.addEventListener('dragend', (e) => {
+            if (!window.__internalDrop && e.dataTransfer.dropEffect === 'move') {
+                if (window.__draggedSelectionRange) { try { window.__draggedSelectionRange.deleteContents(); } catch(err){} }
+                if (window.__draggedTag) { try { window.__draggedTag.remove(); } catch(err){} }
+                document.querySelectorAll('.text-input').forEach(ed => formatEditor(ed));
+            }
+            window.__draggedSelectionRange = null;
+            window.__draggedTag = null;
+            window.__internalDrop = false;
+        });
+
+        document.addEventListener('drop', (e) => {
+            const targetEl = e.target.nodeType === 3 ? e.target.parentNode : e.target;
+            if (!targetEl || typeof targetEl.closest !== 'function') return;
+            const editor = targetEl.closest('.text-input');
+            if (editor) {
+                e.preventDefault();
+                window.__internalDrop = true;
+                const plainText = e.dataTransfer.getData('text/plain');
+                if (!plainText) return;
+
+                let dropRange;
+                if (document.caretRangeFromPoint) {
+                    dropRange = document.caretRangeFromPoint(e.clientX, e.clientY);
+                } else if (document.caretPositionFromPoint) {
+                    const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+                    if (pos) {
+                        dropRange = document.createRange();
+                        dropRange.setStart(pos.offsetNode, pos.offset);
+                        dropRange.collapse(true);
+                    }
+                }
+
+                if (dropRange) {
+                    const isMove = e.dataTransfer.dropEffect === 'move' || e.dataTransfer.dropEffect === 'none' || (!e.ctrlKey && !e.metaKey && !e.altKey);
+
+                    let dropInside = false;
+                    if (window.__draggedSelectionRange) {
+                        try {
+                            const r1 = dropRange.compareBoundaryPoints(Range.START_TO_START, window.__draggedSelectionRange);
+                            const r2 = dropRange.compareBoundaryPoints(Range.START_TO_END, window.__draggedSelectionRange);
+                            if (r1 >= 0 && r2 <= 0) dropInside = true;
+                        } catch(err) {}
+                    } else if (window.__draggedTag) {
+                        try {
+                            if (window.__draggedTag.contains(dropRange.startContainer)) dropInside = true;
+                        } catch(err) {}
+                    }
+
+                    if (dropInside) {
+                        return;
+                    }
+
+                    const marker = document.createElement('span');
+                    marker.id = 'drop-marker';
+                    dropRange.insertNode(marker);
+
+                    if (isMove) {
+                        if (window.__draggedSelectionRange) { try { window.__draggedSelectionRange.deleteContents(); } catch(err){} }
+                        if (window.__draggedTag) { try { window.__draggedTag.remove(); } catch(err){} }
+                    }
+
+                    editor.focus();
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+
+                    if (document.body.contains(marker)) {
+                        const newRange = document.createRange();
+                        newRange.setStartBefore(marker);
+                        newRange.collapse(true);
+                        sel.addRange(newRange);
+                        marker.remove();
+                    } else {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(editor);
+                        newRange.collapse(false);
+                        sel.addRange(newRange);
+                    }
+
+                    activeInput = editor;
+                    document.execCommand('insertText', false, plainText);
+                    formatEditor(editor);
+                    setTimeout(() => saveHistoryState(), 100);
+                }
+                
+                window.__draggedSelectionRange = null;
+                window.__draggedTag = null;
+            }
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            const targetEl = e.target.nodeType === 3 ? e.target.parentNode : e.target;
+            document.querySelectorAll('.dropdown-menu').forEach(menu => { const btn = menu.previousElementSibling; if (!menu.classList.contains('hidden') && !menu.contains(targetEl) && !btn.contains(targetEl)) menu.classList.add('hidden'); });
+
+            if (!targetEl || typeof targetEl.closest !== 'function') return;
+            
+            _mouseDownTag = targetEl.closest('.app-tag, .app-tag-ph, .app-tag-custom, .vis-ctrl, .vis-pilcrow');
+            _mouseDownX = e.clientX;
+            _mouseDownY = e.clientY;
+
+            const editor = targetEl.closest('.text-input');
+            if (editor) {
+                if (targetEl.closest('input')) return;
+
+                if (e.detail >= 4) {
+                    e.preventDefault();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(editor);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } else if (e.detail === 3) {
+                    e.preventDefault();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    const block = targetEl.closest('.editor-block');
+                    if (block) range.selectNodeContents(block);
+                    else range.selectNodeContents(editor);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } else if (e.detail === 1 && !e.shiftKey) {
+                    const sel = window.getSelection();
+                    
+                    if (!sel.isCollapsed) {
+                        let isInside = false;
+                        const range = sel.getRangeAt(0);
+                        const rects = range.getClientRects();
+                        for (let i = 0; i < rects.length; i++) {
+                            const r = rects[i];
+                            if (e.clientX >= r.left - 5 && e.clientX <= r.right + 5 && e.clientY >= r.top - 5 && e.clientY <= r.bottom + 5) {
+                                isInside = true;
+                                break;
+                            }
+                        }
+
+                        if (!isInside) {
+                            let dropRange;
+                            if (document.caretRangeFromPoint) {
+                                dropRange = document.caretRangeFromPoint(e.clientX, e.clientY);
+                            } else if (document.caretPositionFromPoint) {
+                                const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+                                if (pos) {
+                                    dropRange = document.createRange();
+                                    dropRange.setStart(pos.offsetNode, pos.offset);
+                                    dropRange.collapse(true);
+                                }
+                            }
+                            if (dropRange) {
+                                sel.removeAllRanges();
+                                sel.addRange(dropRange);
+                                e.preventDefault();
+                                editor.focus();
+                            } else {
+                                sel.removeAllRanges();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            const targetEl = e.target.nodeType === 3 ? e.target.parentNode : e.target;
+            if (!targetEl || typeof targetEl.closest !== 'function') return;
+            const tag = targetEl.closest('.app-tag, .app-tag-ph, .app-tag-custom, .vis-ctrl, .vis-pilcrow');
+            if (tag && tag === _mouseDownTag) {
+                const dx = Math.abs(e.clientX - _mouseDownX);
+                const dy = Math.abs(e.clientY - _mouseDownY);
+                if (dx < 5 && dy < 5) {
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNode(tag);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            }
+            _mouseDownTag = null;
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
-            const dropdowns = [
-                {btn: 'insertDropdownBtn', menu: 'insertDropdownMenu'},
-                {btn: 'substitutionsDropdownBtn', menu: 'substitutionsDropdownMenu'}
-            ];
-            dropdowns.forEach(d => {
-                document.getElementById(d.btn).addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    document.getElementById(d.menu).classList.toggle('hidden');
+            [textInput, textInput2].forEach(editor => {
+                editor.addEventListener('keydown', handleKeydown);
+                editor.addEventListener('input', () => {
+                    if (isComparisonMode && isDiffActive) { 
+                        saveCaret(editor); 
+                        if (editor === textInput) updateDiff(getRawText(textInput), null); 
+                        else updateDiff(null, getRawText(textInput2)); 
+                        restoreCaret(); 
+                    } 
+                    else { formatEditor(editor); }
+                    if(!isSegmentationMode) { 
+                        clearTimeout(updateTimeout); 
+                        updateTimeout = setTimeout(updateStats, 100); 
+                    }
+                    clearTimeout(historyTimeout);
+                    historyTimeout = setTimeout(saveHistoryState, 400);
                 });
+                editor.addEventListener('focus', () => { activeInput = editor; activeSegmentIndex = -1; });
             });
-            document.addEventListener('click', () => dropdowns.forEach(d => document.getElementById(d.menu).classList.add('hidden')));
-
-            // Observers
-            observer1 = new MutationObserver(() => {
-                if(!isDiffActive) requestAnimationFrame(() => applyVisualizationsForEditor(textInput, overlay));
-                if(activeInput === textInput) updateStats();
+            document.getElementById('fileInput').addEventListener('change', (e) => {
+                const reader = new FileReader(); 
+                reader.onload = (ev) => { 
+                    setRawText(activeInput, ev.target.result);
+                    if (isComparisonMode && isDiffActive && activeInput === textInput2) { updateDiff(null, getRawText(textInput2)); }
+                    if (isSegmentationMode && activeSegmentIndex > -1) segments[activeSegmentIndex].text = getRawText(activeInput);
+                    if(!isSegmentationMode) updateStats();
+                    saveHistoryState();
+                }; reader.readAsText(e.target.files[0]);
             });
-            observer2 = new MutationObserver(() => {
-                if(!isDiffActive) requestAnimationFrame(() => applyVisualizationsForEditor(textInput2, overlay2));
-                if(activeInput === textInput2) updateStats();
-            });
-            observer1.observe(textInput, observerConfig);
-            
-            // Sync scrolling
-            textInput.addEventListener('scroll', () => overlay.scrollTop = textInput.scrollTop);
-            textInput2.addEventListener('scroll', () => overlay2.scrollTop = textInput2.scrollTop);
-            
-            // Cursor tracking for active input switching
-            textInput.addEventListener('focus', () => { activeInput = textInput; });
-            textInput2.addEventListener('focus', () => { activeInput = textInput2; });
-            ['keyup', 'mouseup', 'input'].forEach(evt => textInput.addEventListener(evt, updateLastSelection));
-            ['keyup', 'mouseup', 'input'].forEach(evt => textInput2.addEventListener(evt, updateLastSelection));
-
-            setTimeout(() => setDirection('rtl'), 100);
+            document.getElementById('vizToggleButton').classList.add('is-active-btn');
+            setDirection('auto'); setRawText(textInput, ""); updateRuleHighlight(); updateStats();
+            saveHistoryState();
         });
     </script>
 </body>
